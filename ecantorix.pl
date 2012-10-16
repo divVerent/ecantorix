@@ -26,7 +26,8 @@ our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT = 'sox -t raw -r "$RATE" -e signed
 our $PITCHBEND_DURATION = 0.05;
 our $ANALYZE_MINFREQ = 20;
 our $ANALYZE_MAXFREQ = 500;
-our $ANALYZE_BIAS = 0.98;
+our $ANALYZE_BIAS = 1.2;
+our $ANALYZE_ENV = 3;
 # end of customizable variables
 
 my ($filename, $controlfile) = @ARGV;
@@ -96,8 +97,7 @@ sub getpitch($$$)
 	for($mi .. $ma)
 	{
 		my $s = $correl->[$_];
-		$s *= $ANALYZE_BIAS ** (log($_) / log(2));
-		if($s > $bestscore)
+		if($s > $bestscore * $ANALYZE_BIAS)
 		{
 			$best = $_;
 			$bestscore = $s;
@@ -105,7 +105,7 @@ sub getpitch($$$)
 	}
 	my $sf = 0;
 	my $s = 0;
-	for($best-2 .. $best+2)
+	for($best-$ANALYZE_ENV .. $best+$ANALYZE_ENV)
 	{
 		$s += $correl->[$_];
 		$sf += $_ * $correl->[$_];
@@ -132,6 +132,8 @@ sub play_note($$$$$$$)
 		my $delay = $start - $pitchbend_t;
 		my $duration = $end - $start;
 		my $cents = $semitones * 100;
+		$duration = 0.001
+			if $duration < 0.001;
 		$pitchbend_str .= sprintf " %.6f,%.1f,%.6f",
 			$delay, $cents, $duration;
 	}
