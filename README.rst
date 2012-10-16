@@ -2,6 +2,17 @@
 eCantorix
 =========
 
+::
+       (*)       (*)
+        |         |
+        |--=====--|
+        |  |||||  |
+        |  |||||  |
+        ;  |||||  :
+       (   |||||   )
+        \  |||||  /
+         `-=====-'
+
 eCantorix is a singing synthesis frontend for espeak. It works by using espeak
 to generate raw speech samples, then adjusting their pitch and length and
 finally creating a LMMS project file referencing the samples in sync to the
@@ -44,6 +55,7 @@ Once you have such an input file, run::
 
 	perl ecantorix.pl foo.mid > foo.mmp
 
-The result is a LMMS project file that can be processed to an audio file using:
+The result is a LMMS project file that can be processed to an audio file using::
 
 	lmms -o foo.wav --render foo.mmp
+
