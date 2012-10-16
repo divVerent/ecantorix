@@ -337,6 +337,8 @@ for my $trackno(0..@$tracks-1)
 	for(@lyrics)
 	{
 		my ($starttick, $text, $channels) = @$_;
+		next
+			if $text eq "";
 		for my $channel(sort keys %$channels)
 		{
 			my $notes = $channels->{$channel};
