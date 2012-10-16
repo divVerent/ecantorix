@@ -373,6 +373,8 @@ for my $trackno(0..@$tracks-1)
 			my $realendtick = $notes->[-1]->[0] + $notes->[-1]->[1];
 			my $realstarttime = tick2sec $realstarttick;
 			my $realendtime = tick2sec $realendtick;
+			next
+				if $realendtime - $realstarttime > 10;
 			my @pitchbend = ();
 			my $lastnoteendtime = $realstarttime;
 			my $sumpitch = 0;
