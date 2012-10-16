@@ -7,6 +7,8 @@ use MIDI::Opus;
 use Math::FFT;
 use Cwd;
 
+# these variables can be overridden using the same syntax from a control file
+# e.g. to be able to use a different speaker voice
 our $ESPEAK_ATTEMPTS = 8;
 our $ESPEAK_TRANSPOSE = -24;
 our $ESPEAK_PITCH_MIN = 0;
@@ -16,14 +18,24 @@ our $ESPEAK_SPEED_MIN = 80;
 our $ESPEAK_SPEED_START = 175;
 our $ESPEAK_SPEED_MAX = 450;
 our $ESPEAK = 'espeak -z -p "$PITCH" -s "$SPEED" -w "$OUT" -m "<prosody range=\"0\">$SYLLABLE</prosody>"';
+our $ESPEAK_CACHE = getcwd();
+our $ESPEAK_CACHE_PREFIX = "note";
 our $SOX_RATE = 22050;
 our $SOX_PROCESS_IN_TO_S16LE = 'sox "$IN" -t raw -r "$RATE" -e signed -b 16 -c 1 - remix - silence 1 1s 0 reverse silence 1 1s 0 reverse';
 our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT = 'sox -t raw -r "$RATE" -e signed -b 16 -c 1 - "$OUT" tempo -s "$TEMPO" $PITCHBEND';
 our $PITCHBEND_DURATION = 0.05;
 our $ANALYZE_MINFREQ = 20;
-our $ANALYZE_MAXFREQ = 1000;
+our $ANALYZE_MAXFREQ = 700;
+our $ANALYZE_BIAS = 0.8;
+# end of customizable variables
 
-my ($filename) = @ARGV;
+my ($filename, $controlfile) = @ARGV;
+
+if(length $controlfile)
+{
+	do "$controlfile";
+}
+
 my $opus = MIDI::Opus->new({from_file => $filename});
 my $tracks = $opus->tracks_r();
 
@@ -71,9 +83,20 @@ sub getpitch($$$)
 	my $bestscore = 0;
 	die "WTF: $ma >= @{[@$correl / 2]}"
 		if $ma >= @$correl / 2;
+
+#	open my $fh, ">", "pitch.txt";
+#	for(1..@$correl-1)
+#	{
+#		my $s = $correl->[$_];
+#		$s *= $ANALYZE_BIAS ** (log($_) / log(2));
+#		print $fh "$_ $correl->[$_] $s\n";
+#	}
+#	close $fh;
+
 	for($mi .. $ma)
 	{
 		my $s = $correl->[$_];
+		$s *= $ANALYZE_BIAS ** (log($_) / log(2));
 		if($s > $bestscore)
 		{
 			$best = $_;
@@ -119,8 +142,8 @@ sub play_note($$$$$$$)
 	my $pitch = $ESPEAK_PITCH_START;
 	my $speed = $ESPEAK_SPEED_START;
 
-	my $outname = sprintf "%s/note_%.2f_%.2f_%s_%s.wav",
-		getcwd(), $dt, $hz, $pitchbend_str, $syllable;
+	my $outname = sprintf "%s/%s_%.2f_%.2f_%s_%s.wav",
+		$ESPEAK_CACHE, $ESPEAK_CACHE_PREFIX, $dt, $hz, $pitchbend_str, $syllable;
 
 	if(!-f $outname)
 	{
