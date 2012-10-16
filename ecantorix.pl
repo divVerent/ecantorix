@@ -25,8 +25,8 @@ our $SOX_PROCESS_IN_TO_S16LE = 'sox "$IN" -t raw -r "$RATE" -e signed -b 16 -c 1
 our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT = 'sox -t raw -r "$RATE" -e signed -b 16 -c 1 - "$OUT" tempo -s "$TEMPO" $PITCHBEND';
 our $PITCHBEND_DURATION = 0.05;
 our $ANALYZE_MINFREQ = 20;
-our $ANALYZE_MAXFREQ = 700;
-our $ANALYZE_BIAS = 0.8;
+our $ANALYZE_MAXFREQ = 500;
+our $ANALYZE_BIAS = 0.98;
 # end of customizable variables
 
 my ($filename, $controlfile) = @ARGV;
