@@ -99,6 +99,7 @@ sub play_note($$$$$$$)
 
 	$syllable =~ s/^\///g;
 	$syllable =~ s/^\\//g;
+	$syllable =~ s/^ //g;
 
 	my $pitchbend_str = "";
 	my $pitchbend_t = 0;
@@ -108,7 +109,8 @@ sub play_note($$$$$$$)
 		my $delay = $start - $pitchbend_t;
 		my $duration = $end - $start;
 		my $cents = $semitones * 100;
-		$pitchbend_str .= " $delay,$cents,$duration";
+		$pitchbend_str .= sprintf " %.6f,%.1f,%.6f",
+			$delay, $cents, $duration;
 	}
 	$pitchbend_str = "bend $pitchbend_str"
 		if length $pitchbend_str;
@@ -117,8 +119,8 @@ sub play_note($$$$$$$)
 	my $pitch = $ESPEAK_PITCH_START;
 	my $speed = $ESPEAK_SPEED_START;
 
-	my $outname = sprintf "%s/note_%4.2f_%d_%s_%s.wav",
-		getcwd(), $dt, $note, $pitchbend_str, $syllable;
+	my $outname = sprintf "%s/note_%.2f_%.2f_%s_%s.wav",
+		getcwd(), $dt, $hz, $pitchbend_str, $syllable;
 
 	if(!-f $outname)
 	{
@@ -342,34 +344,40 @@ for my $trackno(0..@$tracks-1)
 		for my $channel(sort keys %$channels)
 		{
 			my $notes = $channels->{$channel};
-			my $firstpitch = $notes->[0]->[2];
 			my $realstarttick = $notes->[0]->[0];
 			my $realendtick = $notes->[-1]->[0] + $notes->[-1]->[1];
 			my $realstarttime = tick2sec $realstarttick;
 			my $realendtime = tick2sec $realendtick;
 			my @pitchbend = ();
-			my $lastnoteendtime = undef;
+			my $lastnoteendtime = $realstarttime;
+			my $sumpitch = 0;
+			my $sumtime = 0;
 			for(@$notes)
 			{
 				my ($notestarttick, $noteticks, $pitch) = @$_;
 				my $noteendtick = $notestarttick + $noteticks;
 				my $notestarttime = tick2sec($notestarttick);
 				my $noteendtime = tick2sec($noteendtick);
-				if(defined $lastnoteendtime)
-				{
-					push @pitchbend, [
-						$lastnoteendtime - $realstarttime,
-						$notestarttime - $realstarttime,
-						$pitch - $firstpitch];
-				}
+				$sumtime += $noteendtime + $notestarttime;
+				$sumpitch += ($noteendtime + $notestarttime) * $pitch;
+				push @pitchbend, [
+					$lastnoteendtime - $realstarttime,
+					$notestarttime - $realstarttime,
+					$pitch];
 				$lastnoteendtime = $noteendtime;
 			}
+			my $avgpitch = $sumpitch / $sumtime;
+			$_->[2] -= $avgpitch
+				for @pitchbend;
+			shift @pitchbend
+				while @pitchbend
+					and abs($pitchbend[0][2]) < 0.001;
 			play_note
 				$realstarttick,
 				$realendtick - $realstarttick,
 				$realstarttime,
 				$realendtime - $realstarttime,
-				$firstpitch, \@pitchbend, $text;
+				$avgpitch, \@pitchbend, $text;
 		}
 	}
 }
