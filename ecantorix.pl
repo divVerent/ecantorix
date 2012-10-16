@@ -80,8 +80,6 @@ sub getpitch($$$)
 	my @data = (@$data, (0) x (2 * $n2 - $n));
 	my $fft = new Math::FFT(\@data);
 	my $correl = $fft->correl($fft);
-	my $best = $mi;
-	my $bestscore = 0;
 	die "WTF: $ma >= @{[@$correl / 2]}"
 		if $ma >= @$correl / 2;
 
@@ -94,6 +92,8 @@ sub getpitch($$$)
 #	}
 #	close $fh;
 
+	my $best = $mi;
+	my $bestscore = 0;
 	for($mi .. $ma)
 	{
 		my $s = $correl->[$_];
@@ -103,6 +103,29 @@ sub getpitch($$$)
 			$bestscore = $s;
 		}
 	}
+
+	# now $best points APPROXIMATELY to the frequency... but is not correct
+	# do a second search for a maximum around $best
+
+#	print STDERR "Guess: $best\n";
+
+	$mi = int($best * 0.67)
+		if $mi < int($best * 0.67);
+	$ma = int($best * 1.50)
+		if $ma > int($best * 1.50);
+
+	for($mi .. $ma)
+	{
+		my $s = $correl->[$_];
+		if($s > $bestscore)
+		{
+			$best = $_;
+			$bestscore = $s;
+		}
+	}
+
+#	print STDERR "Refined: $best\n";
+
 	my $sf = 0;
 	my $s = 0;
 	for($best-$ANALYZE_ENV .. $best+$ANALYZE_ENV)
