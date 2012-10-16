@@ -1,4 +1,4 @@
-ALL = sadi-moma.wav sadi-moma-pitchbend.wav
+ALL = sadi-moma.wav sadi-moma-pitchbend.wav sadi-moma-f1.wav
 
 all: $(ALL)
 
