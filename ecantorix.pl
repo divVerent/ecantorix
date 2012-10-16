@@ -112,7 +112,7 @@ sub play_note($$$$$$$)
 		$pitchbend_str .= sprintf " %.6f,%.1f,%.6f",
 			$delay, $cents, $duration;
 	}
-	$pitchbend_str = "bend $pitchbend_str"
+	$pitchbend_str = "bend$pitchbend_str"
 		if length $pitchbend_str;
 
 	my $hz = 440 * 2**(($note - 69 + $ESPEAK_TRANSPOSE) / 12);
