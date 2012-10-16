@@ -80,8 +80,8 @@ sub getpitch($$$)
 	my @data = (@$data, (0) x (2 * $n2 - $n));
 	my $fft = new Math::FFT(\@data);
 	my $correl = $fft->correl($fft);
-	die "WTF: $ma >= @{[@$correl / 2]}"
-		if $ma >= @$correl / 2;
+	$ma = int(@$correl / 2 - 1)
+		if $ma > int(@$correl / 2 - 1);
 
 #	open my $fh, ">", "pitch.txt";
 #	for(1..@$correl-1)
