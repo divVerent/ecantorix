@@ -408,6 +408,8 @@ for my $trackno(0..@$tracks-1)
 				my $noteendtick = $notestarttick + $noteticks;
 				my $notestarttime = tick2sec($notestarttick);
 				my $noteendtime = tick2sec($noteendtick);
+				die "Overlapping notes: $notestarttime/$channel/$pitch"
+					if $notestarttime < $lastnoteendtime;
 				$sumtime += $noteendtime + $notestarttime;
 				$sumpitch += ($noteendtime + $notestarttime) * $pitch;
 				push @pitchbend, [
