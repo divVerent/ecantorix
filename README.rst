@@ -60,3 +60,12 @@ The result is a LMMS project file that can be processed to an audio file using::
 
 	lmms -o foo.wav --render foo.mmp
 
+License
+=======
+
+This software, as well as espeak, is licensed under the GPL version 3 (see the
+included file COPYING) or any later version, at your choice.
+
+The author believes that the license of the program does not affect licensing
+or copyright of the output files; therefore you can use the output files for
+any purpose of your liking.
