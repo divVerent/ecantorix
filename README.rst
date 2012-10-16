@@ -32,7 +32,9 @@ You can use an empty text event to end the range of notes covered by lyrics.
 
 In case the range of a lyrics event covers multiple notes, the notes must be
 all connected (legato), as they will be performed as a single audio sample
-with pitch shifting.
+with pitch shifting. This feature however yields poor quality lyrics and is
+not recommended - it tends to sound better to rather use separate lyrics events
+and thus split a syllable into two, like "soft" -> "saw-oft".
 
 For polyphony, you can either use multiple tracks (with each having their own
 instance of the lyrics), or a single track and have the notes placed on multiple
