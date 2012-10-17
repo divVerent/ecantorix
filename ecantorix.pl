@@ -147,23 +147,22 @@ EOF
 			$self->{opus}->format(1);
 			$self->{opus}->ticks($opus->ticks());
 			my $metatrack = MIDI::Track->new();
-			my $notetrack = MIDI::Track->new();
-			my $t = 0;
 			$metatrack->events(reltime map {
 				['set_tempo', $_->[0], $_->[1] * $opus->ticks() / 0.000001]
 			} @$tempi);
+			my $notetrack = MIDI::Track->new();
 			$self->{opus}->tracks($metatrack, $notetrack);
 		},
 		sample => sub {
 			my ($self, $tick, $dtick, $outname) = @_;
-			my $track = $self->{opus}->tracks_r()->[1];
+			my $track = $self->{opus}->tracks_r()->[-1];
 			$outname =~ s/^.*\///;
 			$track->new_event(
-				['text_event', $tick, "$OUTPUT_MIDI_PREFIX$outname"]);
+				'text_event', $tick, "$OUTPUT_MIDI_PREFIX$outname");
 		},
 		footer => sub {
 			my ($self) = @_;
-			my $track = $self->{opus}->tracks_r()->[1];
+			my $track = $self->{opus}->tracks_r()->[-1];
 			$track->events(reltime $track->events());
 			$self->{opus}->write_to_handle(\*STDOUT);
 			delete $self->{opus};
@@ -278,8 +277,9 @@ sub play_note($$$$$$$)
 	my $pitch = $ESPEAK_PITCH_START;
 	my $speed = $ESPEAK_SPEED_START;
 
+	(my $pitchbend_fstr = $pitchbend_str) =~ s/ /_/g;
 	my $outname = sprintf "%s/%s_%.2f_%.2f_%s_%s.wav",
-		$ESPEAK_CACHE, $ESPEAK_CACHE_PREFIX, $dt, $hz, $pitchbend_str, $syllable;
+		$ESPEAK_CACHE, $ESPEAK_CACHE_PREFIX, $dt, $hz, $pitchbend_fstr, $syllable;
 
 	if(!-f $outname)
 	{
