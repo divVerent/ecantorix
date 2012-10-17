@@ -44,6 +44,8 @@ our $ANALYZE_MINFREQ = 20;
 our $ANALYZE_MAXFREQ = 500;
 our $ANALYZE_BIAS = 1.2;
 our $ANALYZE_ENV = 3;
+our $OUTPUT_FORMAT = 'lmms';
+our $OUTPUT_MIDI_PREFIX = 'vocals:';
 # end of customizable variables
 
 my ($filename, $controlfile) = @ARGV;
@@ -78,6 +80,98 @@ sub tick2lmms($)
 {
 	return int(48 / $opus->ticks() * $_[0] + 0.5);
 }
+my %out = (
+	lmms => {
+		header => sub
+		{
+			my ($self, $totallen, $tempi) = @_;
+			my $lmms_totallen = tick2lmms $totallen;
+
+			print <<EOF;
+			<?xml version="1.0"?>
+			<!DOCTYPE multimedia-project>
+			<multimedia-project version="1.0" creator="Linux MultiMedia Studio (LMMS)" creatorversion="0.4.13" type="song">
+				<head timesig_numerator="4" mastervol="100" timesig_denominator="4" masterpitch="0">
+					<bpm value="120" id="3481048"/>
+				</head>
+				<song>
+					<trackcontainer width="600" x="5" y="5" maximized="0" height="300" visible="1" type="song" minimized="0">
+						<track muted="0" type="5" name="Automation track">
+							<automationtrack/>
+							<automationpattern name="Tempo" pos="0" len="$lmms_totallen">
+EOF
+			for(@$tempi)
+			{
+				my $lmms_tick = tick2lmms($_->[0]);
+				# x [sec/tick]
+				# x/60 [min/tick]
+				# 60/x [tick/min]
+				# (60/$opus->ticks())/x [quarter/min]
+				my $lmms_tempo = int((60 / $opus->ticks()) / $_->[1] + 0.5);
+				print <<EOF;
+								<time value="$lmms_tempo" pos="$lmms_tick"/>
+EOF
+}
+			print <<EOF;
+								<object id="3481048"/>
+							</automationpattern>
+						</track>
+						<track muted="0" type="2" name="Sample track">
+							<sampletrack vol="100">
+								<fxchain numofeffects="0" enabled="0"/>
+							</sampletrack>
+EOF
+		},
+		sample => sub {
+			my ($self, $tick, $dtick, $outname) = @_;
+			my $lmms_tick = tick2lmms($tick);
+			my $lmms_dtick = tick2lmms($tick + $dtick) - $lmms_tick;
+			print <<EOF;
+							<sampletco muted="0" pos="$lmms_tick" len="$lmms_dtick" src="$outname" />
+EOF
+		},
+		footer => sub {
+			my ($self) = @_;
+			print <<EOF;
+						</track>
+					</trackcontainer>
+				</song>
+			</multimedia-project>
+EOF
+		}
+	},
+	midi => {
+		header => sub {
+			my ($self, $totallen, $tempi) = @_;
+			$self->{opus} = MIDI::Opus->new();
+			$self->{opus}->format(1);
+			$self->{opus}->ticks($opus->ticks());
+			my $metatrack = MIDI::Track->new();
+			my $notetrack = MIDI::Track->new();
+			my $t = 0;
+			$metatrack->events(reltime map {
+				['set_tempo', $_->[0], $_->[1] * $opus->ticks() / 0.000001]
+			} @$tempi);
+			$self->{opus}->tracks($metatrack, $notetrack);
+		},
+		sample => sub {
+			my ($self, $tick, $dtick, $outname) = @_;
+			my $track = $self->{opus}->tracks_r()->[1];
+			$outname =~ s/^.*\///;
+			$track->new_event(
+				['text_event', $tick, "$OUTPUT_MIDI_PREFIX$outname"]);
+		},
+		footer => sub {
+			my ($self) = @_;
+			my $track = $self->{opus}->tracks_r()->[1];
+			$track->events(reltime $track->events());
+			$self->{opus}->write_to_handle(\*STDOUT);
+			delete $self->{opus};
+		}
+	}
+);
+my $out = $out{$OUTPUT_FORMAT};
+my $out_self = {};
 
 sub getpitch($$$)
 {
@@ -170,6 +264,7 @@ sub play_note($$$$$$$)
 		my ($start, $end, $semitones) = @$_;
 		my $delay = $start - $pitchbend_t;
 		my $duration = $end - $start;
+		$pitchbend_t = $end;
 		my $cents = $semitones * 100;
 		$duration = 0.001
 			if $duration < 0.001;
@@ -244,12 +339,7 @@ sub play_note($$$$$$$)
 		close $fh
 			or die "$SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT: $! $?";
 	}
-
-	my $lmms_tick = tick2lmms($tick);
-	my $lmms_dtick = tick2lmms($tick + $dtick) - $lmms_tick;
-	print <<EOF;
-		<sampletco muted="0" pos="$lmms_tick" len="$lmms_dtick" src="$outname" />
-EOF
+	$out->{sample}->($out_self, $tick, $dtick, $outname);
 }
 
 # we store tempo as seconds per tick
@@ -291,42 +381,8 @@ for my $trackno(0..@$tracks-1)
 	$totallen = $events[-1][1]
 		if @events and $events[-1][1] > $totallen;;
 }
-my $lmms_totallen = tick2lmms $totallen;
 
-print <<EOF;
-<?xml version="1.0"?>
-<!DOCTYPE multimedia-project>
-<multimedia-project version="1.0" creator="Linux MultiMedia Studio (LMMS)" creatorversion="0.4.13" type="song">
-	<head timesig_numerator="4" mastervol="100" timesig_denominator="4" masterpitch="0">
-		<bpm value="120" id="3481048"/>
-	</head>
-	<song>
-		<trackcontainer width="600" x="5" y="5" maximized="0" height="300" visible="1" type="song" minimized="0">
-			<track muted="0" type="5" name="Automation track">
-				<automationtrack/>
-				<automationpattern name="Tempo" pos="0" len="$lmms_totallen">
-EOF
-for(@tempi)
-{
-	my $lmms_tick = tick2lmms($_->[0]);
-	# x [sec/tick]
-	# x/60 [min/tick]
-	# 60/x [tick/min]
-	# (60/$opus->ticks())/x [quarter/min]
-	my $lmms_tempo = int((60 / $opus->ticks()) / $_->[1] + 0.5);
-	print <<EOF;
-					<time value="$lmms_tempo" pos="$lmms_tick"/>
-EOF
-}
-print <<EOF;
-					<object id="3481048"/>
-				</automationpattern>
-			</track>
-			<track muted="0" type="2" name="Sample track">
-				<sampletrack vol="100">
-					<fxchain numofeffects="0" enabled="0"/>
-				</sampletrack>
-EOF
+$out->{header}->($out_self, $totallen, \@tempi);
 
 for my $trackno(0..@$tracks-1)
 {
@@ -450,9 +506,4 @@ for my $trackno(0..@$tracks-1)
 	}
 }
 
-print <<EOF;
-			</track>
-		</trackcontainer>
-	</song>
-</multimedia-project>
-EOF
+$out->{footer}->($out_self);
