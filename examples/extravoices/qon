@@ -3,19 +3,23 @@ name female1
 gender female 70
 
 // pitch 140 200
-// pitch 560 800
 // pitch 420 600
-pitch 700 600
-flutter 8
-roughness 4
+pitch 560 800
+// pitch 700 1000
+flutter 0
+roughness 0
 formant 0 115  80 150
 formant 1 120  80 180
-formant 2 100  70 150  150
+// formant 2 100  70 150  150
+formant 2 100  70 150  450
 formant 3 115  70 150
 formant 4 110  80 150
 formant 5 110  90 150
 formant 6 105  80 150
 formant 7 110  70 150
 formant 8 110  70 150
+
+// tone 600 170 1200 135 2000 110
+tone 1200 170 2400 135 4000 110
 
 stressAdd -10 -10 -20 -20 0 0 40 60
