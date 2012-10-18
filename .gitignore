@@ -1,0 +1,5 @@
+*.wav
+*.mid
+*.mmp
+*.plot
+examples/espeak-data/

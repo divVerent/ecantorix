@@ -33,16 +33,18 @@ our $ESPEAK_PITCH_MAX = 99;
 our $ESPEAK_SPEED_MIN = 80;
 our $ESPEAK_SPEED_START = 175;
 our $ESPEAK_SPEED_MAX = 450;
+our $ESPEAK_PITCH_CACHE = 1;
 our $ESPEAK = 'espeak -z -p "$PITCH" -s "$SPEED" -w "$OUT" -m "<prosody range=\"0\">$SYLLABLE</prosody>"';
 our $ESPEAK_CACHE = getcwd();
 our $ESPEAK_CACHE_PREFIX = "note";
 our $SOX_RATE = 22050;
 our $SOX_PROCESS_IN_TO_S16LE = 'sox "$IN" -t raw -r "$RATE" -e signed -b 16 -c 1 - remix - silence 1 1s 0 reverse silence 1 1s 0 reverse';
 our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT = 'sox -t raw -r "$RATE" -e signed -b 16 -c 1 - "$OUT" tempo -s "$TEMPO" $PITCHBEND';
-our $PITCHBEND_DURATION = 0.05;
 our $ANALYZE_MINFREQ = 20;
 our $ANALYZE_MAXFREQ = 500;
-our $ANALYZE_BIAS = 1.2;
+our $ANALYZE_BIAS = 1.4;
+our $ANALYZE_RANGE1 = 2;
+our $ANALYZE_RANGE2 = 16;
 our $ANALYZE_ENV = 3;
 our $OUTPUT_FORMAT = 'lmms';
 our $OUTPUT_MIDI_PREFIX = 'vocals:';
@@ -88,17 +90,17 @@ my %out = (
 			my $lmms_totallen = tick2lmms $totallen;
 
 			print <<EOF;
-			<?xml version="1.0"?>
-			<!DOCTYPE multimedia-project>
-			<multimedia-project version="1.0" creator="Linux MultiMedia Studio (LMMS)" creatorversion="0.4.13" type="song">
-				<head timesig_numerator="4" mastervol="100" timesig_denominator="4" masterpitch="0">
-					<bpm value="120" id="3481048"/>
-				</head>
-				<song>
-					<trackcontainer width="600" x="5" y="5" maximized="0" height="300" visible="1" type="song" minimized="0">
-						<track muted="0" type="5" name="Automation track">
-							<automationtrack/>
-							<automationpattern name="Tempo" pos="0" len="$lmms_totallen">
+<?xml version="1.0"?>
+<!DOCTYPE multimedia-project>
+<multimedia-project version="1.0" creator="Linux MultiMedia Studio (LMMS)" creatorversion="0.4.13" type="song">
+	<head timesig_numerator="4" mastervol="100" timesig_denominator="4" masterpitch="0">
+		<bpm value="120" id="3481048"/>
+	</head>
+	<song>
+		<trackcontainer width="600" x="5" y="5" maximized="0" height="300" visible="1" type="song" minimized="0">
+			<track muted="0" type="5" name="Automation track">
+				<automationtrack/>
+				<automationpattern name="Tempo" pos="0" len="$lmms_totallen">
 EOF
 			for(@$tempi)
 			{
@@ -109,17 +111,17 @@ EOF
 				# (60/$opus->ticks())/x [quarter/min]
 				my $lmms_tempo = int((60 / $opus->ticks()) / $_->[1] + 0.5);
 				print <<EOF;
-								<time value="$lmms_tempo" pos="$lmms_tick"/>
+					<time value="$lmms_tempo" pos="$lmms_tick"/>
 EOF
 }
 			print <<EOF;
-								<object id="3481048"/>
-							</automationpattern>
-						</track>
-						<track muted="0" type="2" name="Sample track">
-							<sampletrack vol="100">
-								<fxchain numofeffects="0" enabled="0"/>
-							</sampletrack>
+					<object id="3481048"/>
+				</automationpattern>
+			</track>
+			<track muted="0" type="2" name="Sample track">
+				<sampletrack vol="100">
+					<fxchain numofeffects="0" enabled="0"/>
+				</sampletrack>
 EOF
 		},
 		sample => sub {
@@ -127,16 +129,16 @@ EOF
 			my $lmms_tick = tick2lmms($tick);
 			my $lmms_dtick = tick2lmms($tick + $dtick) - $lmms_tick;
 			print <<EOF;
-							<sampletco muted="0" pos="$lmms_tick" len="$lmms_dtick" src="$outname" />
+				<sampletco muted="0" pos="$lmms_tick" len="$lmms_dtick" src="$outname" />
 EOF
 		},
 		footer => sub {
 			my ($self) = @_;
 			print <<EOF;
-						</track>
-					</trackcontainer>
-				</song>
-			</multimedia-project>
+			</track>
+		</trackcontainer>
+	</song>
+</multimedia-project>
 EOF
 		}
 	},
@@ -172,41 +174,28 @@ EOF
 my $out = $out{$OUTPUT_FORMAT};
 my $out_self = {};
 
-sub getpitch($$$)
+sub getfirstmaximum($$$)
 {
-	my ($data, $mi, $ma) = @_;
+	my ($correl, $mi, $ma) = @_;
 
-	# pad for autocorrelation to work
-	my $n = @$data;
-	my $n2 = $n;
-	--$n2;
-	$n2 |= $n2 >> 16;
-	$n2 |= $n2 >> 8;
-	$n2 |= $n2 >> 4;
-	$n2 |= $n2 >> 2;
-	$n2 |= $n2 >> 1;
-	++$n2;
-	my @data = (@$data, (0) x (2 * $n2 - $n));
-	my $fft = new Math::FFT(\@data);
-	my $correl = $fft->correl($fft);
-	$ma = int(@$correl / 2 - 1)
-		if $ma > int(@$correl / 2 - 1);
-
-#	open my $fh, ">", "pitch.txt";
-#	for(1..@$correl-1)
-#	{
-#		my $s = $correl->[$_];
-#		$s *= $ANALYZE_BIAS ** (log($_) / log(2));
-#		print $fh "$_ $correl->[$_] $s\n";
-#	}
-#	close $fh;
+	# we're looking for the first "big" maximum in the range
 
 	my $best = $mi;
 	my $bestscore = 0;
 	for($mi .. $ma)
 	{
 		my $s = $correl->[$_];
-		if($s > $bestscore * $ANALYZE_BIAS)
+		my $dist = $_ - $best;
+		my $bias = $ANALYZE_BIAS;
+		if($dist <= $ANALYZE_RANGE1)
+		{
+			$bias = 1;
+		}
+		elsif($dist < $ANALYZE_RANGE2)
+		{
+			$bias = ($bias - 1) * (($dist - $ANALYZE_RANGE1) / ($ANALYZE_RANGE2 - $ANALYZE_RANGE1)) + 1;
+		}
+		if($s > $bestscore * $bias)
 		{
 			$best = $_;
 			$bestscore = $s;
@@ -235,6 +224,32 @@ sub getpitch($$$)
 
 #	print STDERR "Refined: $best\n";
 
+	return $best;
+}
+
+sub getpitch($$$$)
+{
+	my ($data, $mi, $ma, $debugfile) = @_;
+
+	# pad for autocorrelation to work
+	my $n = @$data;
+	my $n2 = $n;
+	--$n2;
+	$n2 |= $n2 >> 16;
+	$n2 |= $n2 >> 8;
+	$n2 |= $n2 >> 4;
+	$n2 |= $n2 >> 2;
+	$n2 |= $n2 >> 1;
+	++$n2;
+	my @data = (@$data, (0) x (2 * $n2 - $n));
+	my $fft = new Math::FFT(\@data);
+	my $correl = $fft->correl($fft);
+
+	$ma = int(@$correl / 2 - 1)
+		if $ma > int(@$correl / 2 - 1);
+
+	my $best = getfirstmaximum($correl, $mi, $ma);
+
 	my $sf = 0;
 	my $s = 0;
 	for($best-$ANALYZE_ENV .. $best+$ANALYZE_ENV)
@@ -242,7 +257,112 @@ sub getpitch($$$)
 		$s += $correl->[$_];
 		$sf += $_ * $correl->[$_];
 	}
-	return $sf / $s;
+
+	my $ret = $sf / $s;
+
+#	print STDERR "Finished: $ret\n";
+
+	if(defined $debugfile)
+	{
+		open my $fh, ">", $debugfile;
+		for(0..@$correl-1)
+		{
+			my $valid = ($_ >= $mi && $_ <= $ma);
+			my $diff = ($_ - $ret);
+			print $fh "$_ $correl->[$_] $diff $valid\n";
+		}
+		close $fh;
+		print STDERR "$debugfile written\n";
+	}
+
+	return $ret;
+}
+
+my @pitch_cache = ();
+sub get_pitch_cached($)
+{
+	my ($pitch) = @_;
+	return $pitch_cache[$pitch]
+		if exists $pitch_cache[$pitch];
+	my @hz = ();
+	print STDERR "Caching pitch $pitch... ";
+	for my $syllable(qw/do re mi fa so la ti/)
+	{
+		for(1..2)
+		{
+			local $ENV{OUT} = "out.wav";
+			local $ENV{PITCH} = $pitch;
+			local $ENV{SPEED} = $ESPEAK_SPEED_MIN + int rand ($ESPEAK_SPEED_MAX - $ESPEAK_SPEED_MIN + 1);;
+			local $ENV{SYLLABLE} = $syllable;
+			0 == system $ESPEAK
+				or die "$ESPEAK: $! $?";
+			local $ENV{RATE} = $SOX_RATE;
+			local $ENV{IN} = "out.wav";
+			open my $fh, '-|', $SOX_PROCESS_IN_TO_S16LE
+				or die "$SOX_PROCESS_IN_TO_S16LE: $!";
+			my $data = do { undef local $/; <$fh>; };
+			close $fh
+				or die "$SOX_PROCESS_IN_TO_S16LE: $! $?";
+			die "$SOX_PROCESS_IN_TO_S16LE: No data"
+				unless length $data;
+
+			my @data = unpack "s*", $data;
+			my $thishz = $SOX_RATE / getpitch(\@data, $SOX_RATE / $ANALYZE_MAXFREQ, $SOX_RATE / $ANALYZE_MINFREQ, undef);
+
+			push @hz, $thishz;
+		}
+	}
+	my $median = [sort { $a <=> $b } @hz]->[(@hz - 1) / 2];
+	print STDERR "$median\n";
+	return $pitch_cache[$pitch] = $median;
+}
+sub find_pitch_cached($)
+{
+	my ($freq) = @_;
+
+	# perform a binary search in the pitch cache
+
+	my $mi = $ESPEAK_PITCH_MIN;
+	my $ma = $ESPEAK_PITCH_MAX;
+	my $mihz = get_pitch_cached($mi);
+	return $mi
+		if $freq <= $mihz;
+	my $mahz = get_pitch_cached($ma);
+	die "CACHE INCONSISTENCY: $mahz not > $mihz"
+		if $mahz <= $mihz;
+	return $ma
+		if $freq >= $mahz;
+	while($ma - $mi > 1)
+	{
+		my $cur = int(($mi + $ma) / 2);
+		my $curhz = get_pitch_cached($cur);
+		die "CACHE INCONSISTENCY: $curhz not > $mihz"
+			if $curhz <= $mihz;
+		die "CACHE INCONSISTENCY: $curhz not < $mahz"
+			if $curhz >= $mahz;
+		if($freq > $curhz)
+		{
+			$mi = $cur;
+			$mihz = $curhz;
+		}
+		elsif($freq < $curhz)
+		{
+			$ma = $cur;
+			$mahz = $curhz;
+		}
+		else
+		{
+			return $cur; # never gonna happen anyway
+		}
+	}
+	if($freq > ($mihz + $mahz) / 2)
+	{
+		return $ma;
+	}
+	else
+	{
+		return $mi;
+	}
 }
 
 sub play_note($$$$$$$)
@@ -287,6 +407,10 @@ sub play_note($$$$$$$)
 		my $thisdt;
 		my $thishz;
 		my $data;
+		if($ESPEAK_PITCH_CACHE)
+		{
+			$pitch = find_pitch_cached($hz);
+		}
 		for(1..$ESPEAK_ATTEMPTS)
 		{
 			local $ENV{OUT} = "out.wav";
@@ -305,24 +429,40 @@ sub play_note($$$$$$$)
 			die "$SOX_PROCESS_IN_TO_S16LE: No data"
 				unless length $data;
 
-			my @data = unpack "s*", $data;
-			$thisdt = @data / $SOX_RATE;
-			$thishz = $SOX_RATE / getpitch(\@data, $SOX_RATE / $ANALYZE_MAXFREQ, $SOX_RATE / $ANALYZE_MINFREQ);
+			$thisdt = (length($data) / 2) / $SOX_RATE;
+
+			if($ESPEAK_PITCH_CACHE)
+			{
+				$thishz = get_pitch_cached($pitch);
+			}
+			else
+			{
+				my @data = unpack "s*", $data;
+				$thishz = $SOX_RATE / getpitch(\@data, $SOX_RATE / $ANALYZE_MAXFREQ, $SOX_RATE / $ANALYZE_MINFREQ, undef);
+				$pitch = [sort { $a <=> $b } (
+					$ESPEAK_PITCH_MIN,
+					int($pitch * $hz / $thishz + 0.5),
+					$ESPEAK_PITCH_MAX)]->[1];
+			}
 
 			$speed = [sort { $a <=> $b } (
 				$ESPEAK_SPEED_MIN,
 				int($speed * $thisdt / $dt + 0.5),
 				$ESPEAK_SPEED_MAX)]->[1];
-			$pitch = [sort { $a <=> $b } (
-				$ESPEAK_PITCH_MIN,
-				int($pitch * $hz / $thishz + 0.5),
-				$ESPEAK_PITCH_MAX)]->[1];
 		}
 
 		my $pitchfix = $hz / $thishz;
 		my $lengthfix = $dt / $thisdt;
-		print STDERR "Pitch correction: $thishz -> $hz\n";
-		print STDERR "Length correction: $thisdt -> $dt\n";
+		#print STDERR "Pitch correction: $thishz -> $hz\n";
+		#print STDERR "Length correction: $thisdt -> $dt\n";
+		if(!$ESPEAK_PITCH_CACHE)
+		{
+			if($pitchfix <= 0 || abs(log($pitchfix)) > 0.1)
+			{
+				warn "Large pitch correction: $thishz -> $hz";
+				getpitch([unpack("s*", $data)], $SOX_RATE / $ANALYZE_MAXFREQ, $SOX_RATE / $ANALYZE_MINFREQ, "$outname.plot");
+			}
+		}
 		my $rate0 = $SOX_RATE;
 
 		my $tempofix = 1 / $lengthfix;
