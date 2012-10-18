@@ -343,7 +343,9 @@ sub get_pitch_cached($)
 		}
 	}
 	my $median = [sort { $a <=> $b } @hz]->[(@hz - 1) / 2];
-	print STDERR "$median\n";
+	my $above = scalar grep { $_ >= $median * 1.5 } @hz;
+	my $below = scalar grep { $_ <= $median * 0.67 } @hz;
+	print STDERR "$median ($above above, $below below)\n";
 	return $pitch_cache[$pitch] = $median;
 }
 sub find_pitch_cached($)
