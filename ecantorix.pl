@@ -52,7 +52,8 @@ our $ESPEAK_SPEED_MIN = 80;
 our $ESPEAK_SPEED_START = 175;
 our $ESPEAK_SPEED_MAX = 450;
 our $ESPEAK_PITCH_CACHE = 1;
-our $ESPEAK_PITCH_FACTOR = sub { return $pitch_adjust_tab[$_[0]]; };
+#our $ESPEAK_PITCH_FACTOR = sub { return $pitch_adjust_tab[$_[0]]; }; # works only for voices with zero range
+our $ESPEAK_PITCH_FACTOR;
 our $ESPEAK = 'espeak -z -p "$PITCH" -s "$SPEED" -w "$OUT" -m "<prosody range=\"0\">$SYLLABLE</prosody>"';
 our $ESPEAK_CACHE = getcwd();
 our $ESPEAK_CACHE_PREFIX = "note";
@@ -317,7 +318,7 @@ sub get_pitch_cached($)
 	print STDERR "Caching pitch $pitch... ";
 	for my $syllable(qw/do re mi fa so la ti/)
 	{
-		for(1..2)
+		for(1..5)
 		{
 			local $ENV{OUT} = "out.wav";
 			local $ENV{PITCH} = $pitch;
