@@ -264,7 +264,31 @@ sub getpitch($$$$)
 	++$n2;
 	my @data = (@$data, (0) x (2 * $n2 - $n));
 	my $fft = new Math::FFT(\@data);
+
 	my $correl = $fft->correl($fft);
+
+	# EAC algorithm
+	# 1. clip off values below zero
+	for(0..@$correl-1)
+	{
+		$correl->[$_] = 0
+			if $correl->[$_] < 0;
+	}
+	# 2. subtract a time-doubled signal
+	for(reverse 1..@$correl/2-1)
+	{
+		if($_ % 2)
+		{
+			$correl->[$_] -= ($correl->[($_ - 1) / 2] + $correl->[($_ - 1) / 2]) / 2;
+		}
+		else
+		{
+			$correl->[$_] -= $correl->[$_ / 2];
+		}
+		# 3. clip off values below zero again
+		$correl->[$_] = 0
+			if $correl->[$_] < 0;
+	}
 
 	$ma = int(@$correl / 2 - 1)
 		if $ma > int(@$correl / 2 - 1);
