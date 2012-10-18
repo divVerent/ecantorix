@@ -23,6 +23,24 @@ use MIDI::Opus;
 use Math::FFT;
 use Cwd;
 
+# from wavegen.cpp
+# set from y = pow(2,x) * 128,  x=-1 to 1
+our @pitch_adjust_tab = (
+    64, 65, 66, 67, 68, 69, 70, 71,
+    72, 73, 74, 75, 76, 77, 78, 79,
+    80, 81, 82, 83, 84, 86, 87, 88,
+    89, 91, 92, 93, 94, 96, 97, 98,
+   100,101,103,104,105,107,108,110,
+   111,113,115,116,118,119,121,123,
+   124,126,128,130,132,133,135,137,
+   139,141,143,145,147,149,151,153,
+   155,158,160,162,164,167,169,171,
+   174,176,179,181,184,186,189,191,
+   194,197,199,202,205,208,211,214,
+   217,220,223,226,229,232,236,239,
+   242,246,249,252, 254,255
+);
+
 # these variables can be overridden using the same syntax from a control file
 # e.g. to be able to use a different speaker voice
 our $ESPEAK_ATTEMPTS = 8;
@@ -34,6 +52,7 @@ our $ESPEAK_SPEED_MIN = 80;
 our $ESPEAK_SPEED_START = 175;
 our $ESPEAK_SPEED_MAX = 450;
 our $ESPEAK_PITCH_CACHE = 1;
+our $ESPEAK_PITCH_FACTOR = sub { return $pitch_adjust_tab[$_[0]]; };
 our $ESPEAK = 'espeak -z -p "$PITCH" -s "$SPEED" -w "$OUT" -m "<prosody range=\"0\">$SYLLABLE</prosody>"';
 our $ESPEAK_CACHE = getcwd();
 our $ESPEAK_CACHE_PREFIX = "note";
@@ -279,9 +298,19 @@ sub getpitch($$$$)
 }
 
 my @pitch_cache = ();
+sub get_pitch_cached($);
 sub get_pitch_cached($)
 {
 	my ($pitch) = @_;
+	if($ESPEAK_PITCH_FACTOR)
+	{
+		if($pitch != $ESPEAK_PITCH_START)
+		{
+			my $base = get_pitch_cached($ESPEAK_PITCH_START);
+			my $f = $ESPEAK_PITCH_FACTOR->($pitch) / $ESPEAK_PITCH_FACTOR->($ESPEAK_PITCH_START);
+			return $f * $base;
+		}
+	}
 	return $pitch_cache[$pitch]
 		if exists $pitch_cache[$pitch];
 	my @hz = ();
