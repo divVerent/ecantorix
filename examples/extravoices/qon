@@ -3,7 +3,9 @@ name female1
 gender female 70
 
 // pitch 140 200
-pitch 560 800
+// pitch 420 600
+// pitch 560 800
+pitch 680 680
 // pitch 700 1000
 
 flutter 0
