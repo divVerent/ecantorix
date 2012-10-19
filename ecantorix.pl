@@ -108,7 +108,6 @@ my %out = (
 		header => sub
 		{
 			my ($self, $totallen, $tempi) = @_;
-			my $lmms_totallen = tick2lmms $totallen;
 
 			print <<EOF;
 <?xml version="1.0"?>
@@ -119,26 +118,34 @@ my %out = (
 	</head>
 	<song>
 		<trackcontainer width="600" x="5" y="5" maximized="0" height="300" visible="1" type="song" minimized="0">
+EOF
+			if(@$tempi)
+			{
+				my $lmms_tempolen = tick2lmms($tempi->[-1][0]) + 1;
+				print <<EOF;
 			<track muted="0" type="5" name="Automation track">
 				<automationtrack/>
-				<automationpattern name="Tempo" pos="0" len="$lmms_totallen">
+				<automationpattern name="Tempo" pos="0" len="$lmms_tempolen">
 EOF
-			for(@$tempi)
-			{
-				my $lmms_tick = tick2lmms($_->[0]);
-				# x [sec/tick]
-				# x/60 [min/tick]
-				# 60/x [tick/min]
-				# (60/$opus->ticks())/x [quarter/min]
-				my $lmms_tempo = int((60 / $opus->ticks()) / $_->[1] + 0.5);
-				print <<EOF;
+				for(@$tempi)
+				{
+					my $lmms_tick = tick2lmms($_->[0]);
+					# x [sec/tick]
+					# x/60 [min/tick]
+					# 60/x [tick/min]
+					# (60/$opus->ticks())/x [quarter/min]
+					my $lmms_tempo = int((60 / $opus->ticks()) / $_->[1] + 0.5);
+					print <<EOF;
 					<time value="$lmms_tempo" pos="$lmms_tick"/>
 EOF
-}
-			print <<EOF;
+				}
+				print <<EOF;
 					<object id="3481048"/>
 				</automationpattern>
 			</track>
+EOF
+			}
+			print <<EOF;
 			<track muted="0" type="2" name="Sample track">
 				<sampletrack vol="100">
 					<fxchain numofeffects="0" enabled="0"/>
@@ -264,7 +271,31 @@ sub getpitch($$$$)
 	++$n2;
 	my @data = (@$data, (0) x (2 * $n2 - $n));
 	my $fft = new Math::FFT(\@data);
+
 	my $correl = $fft->correl($fft);
+
+	# EAC algorithm
+	# 1. clip off values below zero
+	for(0..@$correl-1)
+	{
+		$correl->[$_] = 0
+			if $correl->[$_] < 0;
+	}
+	# 2. subtract a time-doubled signal
+	for(reverse 1..@$correl/2-1)
+	{
+		if($_ % 2)
+		{
+			$correl->[$_] -= ($correl->[($_ - 1) / 2] + $correl->[($_ - 1) / 2]) / 2;
+		}
+		else
+		{
+			$correl->[$_] -= $correl->[$_ / 2];
+		}
+		# 3. clip off values below zero again
+		$correl->[$_] = 0
+			if $correl->[$_] < 0;
+	}
 
 	$ma = int(@$correl / 2 - 1)
 		if $ma > int(@$correl / 2 - 1);

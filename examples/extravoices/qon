@@ -10,13 +10,18 @@ pitch 680 680
 
 flutter 0
 roughness 0
+
+// full voice
 voicing 100
+
+// weaker consonants please
 consonants 60 60
 
+// this is the f2 voice, actually
 formant 0 105  80 150 // low frequency stuff
-formant 1 110  80 160 // vowels "o"
-formant 2 110  70 150 // vowels "e"
-formant 3 110  70 150 // vowels "i"
+formant 1 110  80 160 // vowels
+formant 2 110  70 150 // vowels
+formant 3 110  70 150 // vowels
 formant 4 115  80 150 // high frequency stuff
 formant 5 115  80 150 // high frequency stuff
 formant 6 110  70 150 // may make sound clearer
