@@ -399,6 +399,14 @@ sub get_pitch_cached($)
 	}
 	return $pitch_cache[$pitch]
 		if exists $pitch_cache[$pitch];
+	my $cache = sprintf "%s/%s_%s_%d.pitch",
+		$ESPEAK_CACHE, $ESPEAK_CACHE_PREFIX, $ESPEAK_VOICE, $pitch;
+	if(open my $fh, "<", $cache)
+	{
+		my $ret = <$fh> + 0;
+		close $fh;
+		return $ret;
+	}
 	my @hz = ();
 	print STDERR "Caching pitch $pitch... ";
 	for my $syllable(qw/do re mi fa so la ti/)
@@ -417,6 +425,11 @@ sub get_pitch_cached($)
 	my $above = scalar grep { $_ >= $median * (2 ** (0.5 / 12)) } @hz;
 	my $below = scalar grep { $_ <= $median / (2 ** (0.5 / 12)) } @hz;
 	print STDERR "$median ($above above, $below below)\n";
+	if(open my $fh, ">", $cache)
+	{
+		print $fh "$median\n";
+		close $fh;
+	}
 	return $pitch_cache[$pitch] = $median;
 }
 sub find_pitch_cached($)
