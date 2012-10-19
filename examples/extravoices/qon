@@ -9,16 +9,15 @@ pitch 680 680
 // pitch 700 1000
 flutter 0
 roughness 0
-formant 0 115  80 150
-formant 1 120  80 180
-// formant 2 100  70 150  150
-formant 2 100  70 150  450
-formant 3 115  70 150
-formant 4 110  80 150
-formant 5 110  90 150
-formant 6 105  80 150
-formant 7 110  70 150
-formant 8 110  70 150
+formant 0 149 80 150
+formant 1 156 80 180
+formant 2 130 70 150  195
+formant 3 149 70 150
+formant 4 143 80 150
+formant 5 143 90 150
+formant 6 136 80 150
+formant 7 143 70 150
+formant 8 143 70 150
 
 // tone 600 170 1200 135 2000 110
 tone 1200 170 2400 135 4000 110
