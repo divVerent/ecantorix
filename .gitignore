@@ -2,4 +2,5 @@
 *.mid
 *.mmp
 *.plot
+*.pitch
 examples/espeak-data/
