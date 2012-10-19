@@ -2,7 +2,7 @@ ALL = \
       entchen.wav \
       sadi-moma.wav \
       sadi-moma-pitchbend.wav \
-      sadi-moma-f1.wav \
+      sadi-moma-qon.wav \
       nacht-v.wav \
 
 all: $(ALL)
