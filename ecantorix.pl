@@ -108,7 +108,6 @@ my %out = (
 		header => sub
 		{
 			my ($self, $totallen, $tempi) = @_;
-			my $lmms_totallen = tick2lmms $totallen;
 
 			print <<EOF;
 <?xml version="1.0"?>
@@ -119,26 +118,34 @@ my %out = (
 	</head>
 	<song>
 		<trackcontainer width="600" x="5" y="5" maximized="0" height="300" visible="1" type="song" minimized="0">
+EOF
+			if(@$tempi)
+			{
+				my $lmms_tempolen = tick2lmms($tempi->[-1][0]) + 1;
+				print <<EOF;
 			<track muted="0" type="5" name="Automation track">
 				<automationtrack/>
-				<automationpattern name="Tempo" pos="0" len="$lmms_totallen">
+				<automationpattern name="Tempo" pos="0" len="$lmms_tempolen">
 EOF
-			for(@$tempi)
-			{
-				my $lmms_tick = tick2lmms($_->[0]);
-				# x [sec/tick]
-				# x/60 [min/tick]
-				# 60/x [tick/min]
-				# (60/$opus->ticks())/x [quarter/min]
-				my $lmms_tempo = int((60 / $opus->ticks()) / $_->[1] + 0.5);
-				print <<EOF;
+				for(@$tempi)
+				{
+					my $lmms_tick = tick2lmms($_->[0]);
+					# x [sec/tick]
+					# x/60 [min/tick]
+					# 60/x [tick/min]
+					# (60/$opus->ticks())/x [quarter/min]
+					my $lmms_tempo = int((60 / $opus->ticks()) / $_->[1] + 0.5);
+					print <<EOF;
 					<time value="$lmms_tempo" pos="$lmms_tick"/>
 EOF
-}
-			print <<EOF;
+				}
+				print <<EOF;
 					<object id="3481048"/>
 				</automationpattern>
 			</track>
+EOF
+			}
+			print <<EOF;
 			<track muted="0" type="2" name="Sample track">
 				<sampletrack vol="100">
 					<fxchain numofeffects="0" enabled="0"/>
