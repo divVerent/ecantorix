@@ -7,20 +7,26 @@ gender female 70
 // pitch 560 800
 pitch 680 680
 // pitch 700 1000
+
 flutter 0
 roughness 0
-formant 0 115  80 150
-formant 1 120  80 180
-// formant 2 100  70 150  150
-formant 2 100  70 150  450
-formant 3 115  70 150
-formant 4 110  80 150
-formant 5 110  90 150
-formant 6 105  80 150
-formant 7 110  70 150
-formant 8 110  70 150
+
+// full voice
+voicing 100
 
 // tone 600 170 1200 135 2000 110
 tone 1200 170 2400 135 4000 110
 
-stressAdd -10 -10 -20 -20 0 0 40 60
+// weaker consonants please
+consonants 60 60
+
+// this is the f1 voice, actually, but with formants multiplied by 1.25
+formant 0 143 80 150
+formant 1 150 80 180
+formant 2 125 70 150  150
+formant 3 143 70 150
+formant 4 137 80 150
+formant 5 137 90 150
+formant 6 131 80 150
+formant 7 137 70 150
+formant 8 137 70 150
