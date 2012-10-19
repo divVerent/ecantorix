@@ -1,6 +1,6 @@
 $ESPEAK_VOICE .= "+qon";
 $ESPEAK_VOICE_PATH = ".";
 $ESPEAK_USE_PITCH_ADJUST_TAB = 1;
-$SOX_AFTEREFFECTS .= "pad 0 1 tremolo 9 50 reverb";
 $ANALYZE_MINFREQ = 200;
 $ANALYZE_MAXFREQ = 2000;
+do 'extravoices/tremolo.inc';

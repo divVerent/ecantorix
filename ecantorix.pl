@@ -57,7 +57,7 @@ our $SOX_AFTEREFFECTS;
 
 # paths
 our $ESPEAK_CACHE = getcwd();
-our $ESPEAK_CACHE_PREFIX = undef; # defaults to $ESPEAK_VOICE
+our $ESPEAK_CACHE_PREFIX = "";
 our $ESPEAK_TEMPFILE = "out.wav";
 
 # output
@@ -101,10 +101,6 @@ if(length $controlfile)
 	do "$controlfile";
 }
 
-if(!defined $ESPEAK_CACHE_PREFIX)
-{
-	$ESPEAK_CACHE_PREFIX = $ESPEAK_VOICE;
-}
 if(!defined $ESPEAK_PITCH_FACTOR and $ESPEAK_USE_PITCH_ADJUST_TAB)
 {
 	# works only for voices with zero range
@@ -479,10 +475,6 @@ sub play_note($$$$$$$)
 	# iterative find fitting -p (pitch, 0..99) and -s (speed, 80..450)
 	# parameters for espeak
 
-	$syllable =~ s/^\///g;
-	$syllable =~ s/^\\//g;
-	$syllable =~ s/^ //g;
-
 	my $pitchbend_str = "";
 	my $pitchbend_t = 0;
 	for(@$pitchbend)
@@ -505,8 +497,9 @@ sub play_note($$$$$$$)
 	my $speed = $ESPEAK_SPEED_START;
 
 	(my $pitchbend_fstr = $pitchbend_str) =~ s/ /_/g;
-	my $outname = sprintf "%s/%s_%.2f_%.2f_%s_%s.wav",
-		$ESPEAK_CACHE, $ESPEAK_CACHE_PREFIX, $dt, $hz, $pitchbend_fstr, $syllable;
+	(my $syllable_fstr = $syllable) =~ s/[^A-Za-z0-9\200-\377]/_/g;
+	my $outname = sprintf "%s/%s_%s_%.2f_%.2f_%s_%s.wav",
+		$ESPEAK_CACHE, $ESPEAK_CACHE_PREFIX, $ESPEAK_VOICE, $dt, $hz, $pitchbend_fstr, $syllable_fstr;
 
 	if(!-f $outname)
 	{
@@ -693,6 +686,10 @@ for my $trackno(0..@$tracks-1)
 	for(@lyrics)
 	{
 		my ($starttick, $text, $channels) = @$_;
+		$text =~ s/^\///g;
+		$text =~ s/^\\//g;
+		$text =~ s/^ *//g;
+		$text =~ s/ *$//g;
 		next
 			if $text eq "";
 		for my $channel(sort keys %$channels)
