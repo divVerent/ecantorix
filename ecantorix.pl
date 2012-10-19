@@ -43,32 +43,55 @@ our @pitch_adjust_tab = (
 
 # these variables can be overridden using the same syntax from a control file
 # e.g. to be able to use a different speaker voice
-our $ESPEAK_ATTEMPTS = 8;
+
+# voice parameters
+our $ESPEAK_VOICE = "default";
+our $ESPEAK_VOICE_PATH;
 our $ESPEAK_TRANSPOSE = -24;
+our $ESPEAK_USE_PITCH_ADJUST_TAB = 0;
+
+# filtering
+our $SOX_RATE = 22050;
+our $SOX_PREEFFECTS;
+our $SOX_AFTEREFFECTS;
+
+# paths
+our $ESPEAK_CACHE = getcwd();
+our $ESPEAK_CACHE_PREFIX = undef; # defaults to $ESPEAK_VOICE
+our $ESPEAK_TEMPFILE = "out.wav";
+
+# output
+our $OUTPUT_FORMAT = 'lmms';
+
+# if $OUTPUT_FORMAT is 'midi':
+our $OUTPUT_MIDI_PREFIX = 'vocals:';
+
+# tools (usually need no changes here)
+our $ESPEAK = 'espeak -v "$VOICE" ${VOICE_PATH:+--path="$VOICE_PATH"} -z -p "$PITCH" -s "$SPEED" -w "$OUT" -m "<prosody range=\"0\">$SYLLABLE</prosody>"';
+our $SOX_PROCESS_IN_TO_S16LE = 'sox "$IN" -t raw -r "$RATE" -e signed -b 16 -c 1 - remix - $PREEFFECTS silence 1 1s 0 reverse silence 1 1s 0 reverse';
+our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT = 'sox -t raw -r "$RATE" -e signed -b 16 -c 1 - "$OUT" tempo -s "$TEMPO" $PITCHBEND $AFTEREFFECTS';
+
+# espeak tool options (normally don't touch this)
+our $ESPEAK_ATTEMPTS = 8;
 our $ESPEAK_PITCH_MIN = 0;
 our $ESPEAK_PITCH_START = 50;
 our $ESPEAK_PITCH_MAX = 99;
 our $ESPEAK_SPEED_MIN = 80;
 our $ESPEAK_SPEED_START = 175;
 our $ESPEAK_SPEED_MAX = 450;
+
+# pitch caching (normally don't touch this)
 our $ESPEAK_PITCH_CACHE = 1;
 our $ESPEAK_PITCH_CACHE_SPEEDS = 5;
-#our $ESPEAK_PITCH_FACTOR = sub { return $pitch_adjust_tab[$_[0]]; }; # works only for voices with zero range
-our $ESPEAK_PITCH_FACTOR;
-our $ESPEAK = 'espeak -z -p "$PITCH" -s "$SPEED" -w "$OUT" -m "<prosody range=\"0\">$SYLLABLE</prosody>"';
-our $ESPEAK_CACHE = getcwd();
-our $ESPEAK_CACHE_PREFIX = "note";
-our $SOX_RATE = 22050;
-our $SOX_PROCESS_IN_TO_S16LE = 'sox "$IN" -t raw -r "$RATE" -e signed -b 16 -c 1 - remix - silence 1 1s 0 reverse silence 1 1s 0 reverse';
-our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT = 'sox -t raw -r "$RATE" -e signed -b 16 -c 1 - "$OUT" tempo -s "$TEMPO" $PITCHBEND';
+our $ESPEAK_PITCH_FACTOR; # this can be a sub that calculates the pitch change
+
+# pitch calculating (normally don't touch this)
 our $ANALYZE_MINFREQ = 20;
 our $ANALYZE_MAXFREQ = 500;
 our $ANALYZE_BIAS = 1.4;
 our $ANALYZE_RANGE1 = 2;
 our $ANALYZE_RANGE2 = 16;
 our $ANALYZE_ENV = 3;
-our $OUTPUT_FORMAT = 'lmms';
-our $OUTPUT_MIDI_PREFIX = 'vocals:';
 # end of customizable variables
 
 my ($filename, $controlfile) = @ARGV;
@@ -76,6 +99,16 @@ my ($filename, $controlfile) = @ARGV;
 if(length $controlfile)
 {
 	do "$controlfile";
+}
+
+if(!defined $ESPEAK_CACHE_PREFIX)
+{
+	$ESPEAK_CACHE_PREFIX = $ESPEAK_VOICE;
+}
+if(!defined $ESPEAK_PITCH_FACTOR and $ESPEAK_USE_PITCH_ADJUST_TAB)
+{
+	# works only for voices with zero range
+	$ESPEAK_PITCH_FACTOR = sub { return $pitch_adjust_tab[$_[0]]; };
 }
 
 my $opus = MIDI::Opus->new({from_file => $filename});
@@ -330,6 +363,30 @@ sub getpitch($$$$)
 	return $ret;
 }
 
+sub get_voice_sample($$$)
+{
+	my ($pitch, $speed, $syllable) = @_;
+	local $ENV{OUT} = $ESPEAK_TEMPFILE;
+	local $ENV{PITCH} = $pitch;
+	local $ENV{SPEED} = $speed;
+	local $ENV{VOICE} = $ESPEAK_VOICE;
+	local $ENV{VOICE_PATH} = $ESPEAK_VOICE_PATH;
+	local $ENV{SYLLABLE} = $syllable;
+	0 == system $ESPEAK
+		or die "$ESPEAK: $! $?";
+	local $ENV{PREEFFECTS} = $SOX_PREEFFECTS;
+	local $ENV{RATE} = $SOX_RATE;
+	local $ENV{IN} = $ESPEAK_TEMPFILE;
+	open my $fh, '-|', $SOX_PROCESS_IN_TO_S16LE
+		or die "$SOX_PROCESS_IN_TO_S16LE: $!";
+	my $data = do { undef local $/; <$fh>; };
+	close $fh
+		or die "$SOX_PROCESS_IN_TO_S16LE: $! $?";
+	die "$SOX_PROCESS_IN_TO_S16LE: No data"
+		unless length $data;
+	return $data;
+}
+
 my @pitch_cache = ();
 sub get_pitch_cached($);
 sub get_pitch_cached($)
@@ -352,22 +409,8 @@ sub get_pitch_cached($)
 	{
 		for(0..($ESPEAK_PITCH_CACHE_SPEEDS - 1))
 		{
-			local $ENV{OUT} = "out.wav";
-			local $ENV{PITCH} = $pitch;
-			local $ENV{SPEED} = int(0.5 + $ESPEAK_SPEED_MIN + ($ESPEAK_SPEED_MAX - $ESPEAK_SPEED_MIN + 1) * (($_ + 0.5) / $ESPEAK_PITCH_CACHE_SPEEDS));
-			local $ENV{SYLLABLE} = $syllable;
-			0 == system $ESPEAK
-				or die "$ESPEAK: $! $?";
-			local $ENV{RATE} = $SOX_RATE;
-			local $ENV{IN} = "out.wav";
-			open my $fh, '-|', $SOX_PROCESS_IN_TO_S16LE
-				or die "$SOX_PROCESS_IN_TO_S16LE: $!";
-			my $data = do { undef local $/; <$fh>; };
-			close $fh
-				or die "$SOX_PROCESS_IN_TO_S16LE: $! $?";
-			die "$SOX_PROCESS_IN_TO_S16LE: No data"
-				unless length $data;
-
+			my $speed = int(0.5 + $ESPEAK_SPEED_MIN + ($ESPEAK_SPEED_MAX - $ESPEAK_SPEED_MIN + 1) * (($_ + 0.5) / $ESPEAK_PITCH_CACHE_SPEEDS));
+			my $data = get_voice_sample $pitch, $speed, $syllable;
 			my @data = unpack "s*", $data;
 			my $thishz = $SOX_RATE / getpitch(\@data, $SOX_RATE / $ANALYZE_MAXFREQ, $SOX_RATE / $ANALYZE_MINFREQ, undef);
 
@@ -477,21 +520,7 @@ sub play_note($$$$$$$)
 		}
 		for(1..$ESPEAK_ATTEMPTS)
 		{
-			local $ENV{OUT} = "out.wav";
-			local $ENV{PITCH} = $pitch;
-			local $ENV{SPEED} = $speed;
-			local $ENV{SYLLABLE} = $syllable;
-			0 == system $ESPEAK
-				or die "$ESPEAK: $! $?";
-			local $ENV{RATE} = $SOX_RATE;
-			local $ENV{IN} = "out.wav";
-			open my $fh, '-|', $SOX_PROCESS_IN_TO_S16LE
-				or die "$SOX_PROCESS_IN_TO_S16LE: $!";
-			$data = do { undef local $/; <$fh>; };
-			close $fh
-				or die "$SOX_PROCESS_IN_TO_S16LE: $! $?";
-			die "$SOX_PROCESS_IN_TO_S16LE: No data"
-				unless length $data;
+			$data = get_voice_sample $pitch, $speed, $syllable;
 
 			$thisdt = (length($data) / 2) / $SOX_RATE;
 
@@ -533,6 +562,7 @@ sub play_note($$$$$$$)
 		my $rate = int(0.5 + $rate0 * $pitchfix);
 		$tempofix *= $rate0 / $rate;;
 
+		local $ENV{AFTEREFFECTS} = $SOX_AFTEREFFECTS;
 		local $ENV{RATE} = $rate;
 		local $ENV{TEMPO} = $tempofix;
 		local $ENV{OUT} = $outname;
