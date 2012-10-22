@@ -1,9 +1,10 @@
 ALL = \
       entchen.wav \
-      sadi-moma.wav \
+      nacht-v.wav \
       sadi-moma-pitchbend.wav \
       sadi-moma-qon.wav \
-      nacht-v.wav \
+      sadi-moma.wav \
+      sarastro.wav \
 
 all: $(ALL)
 

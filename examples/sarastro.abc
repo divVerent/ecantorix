@@ -1,0 +1,114 @@
+X: 1
+M: 2/4
+L: 1/16
+Q:1/4=45
+K:E
+V:1
+x|
+x8|
+x6 B,2|
+w: in
+B,3 B, B, C A, F,|
+w: die sen hei li ge en
+E,3 F, D,2 B,,2|
+w: ha all len kennt
+E,3 F,/2 E,/2 D, E, F, G,|
+w: man die i ra a che e
+G,2 F,2 x2 B,2|
+w: nie icht und
+B,3 B, =C ^C A, F,|
+w: ist ein mä ensch ge e
+E,3 F, D,2 F,2|
+w: fa all len führt
+G, B,2 G,/2 E,/2 D, F,2 E,/2 C,/2|
+w: lie ie be e ie ihn zu ur
+B,,3 B,,/2 x4 x/2|
+w: pflicht_
+x4 x B,, C, D,|
+w: dann wann delt
+E, F, G, A, B, C/2 B,/2 A,/2 G,/2 F,/2 E,/2|
+w: eh er a an fro o o o eun de es
+G,/2 F,3 F,/2 x B,, C, D,|
+w: ha and_ ver gnügt und
+E, F, G, A, B, C/2 B,/2 A,/2 G,/2 F,/2 E,/2|
+w: froh oh i ins be e e e ess re e
+G,/2 F,3 F,/2 x F, G, A,|
+w: la and_ dann wann delt
+B,3 G, E,3 F,/2 G,/2|
+w: er an freun de es
+B,2 A,2 x F, F, F,|
+w: ha and ver gnügt und
+G,2 F,/2 G,/2 A,/2 F,/2 E,2 F,2|
+w: froh i i i ins bess re
+F,2 G,2 x E, B,, A,,|
+w: la and dann wann delt
+G,,3 G,, C,3 C,|
+w: er an freun des
+F,,3 F,,/2 x3/2 B,, B,, B,,|
+w: hand_ ver gnügt und
+E,2 A,,2 B,,2 B,,2|
+w: froh ins bess re
+E,3 E,/2 x/2 G,,3 G,,/2 x/2|
+w: land_ ins_
+F,,4 A,,2 C,2|
+w: bess re ins
+C,/2 B,,4 B,, x/2 C, D,|
+w: be ess_ re e
+E,3 E,/2 x/2 x4|
+w: land_
+x8|
+M: 1/8
+x2 |
+M: 2/4
+x6 B,2 |
+w: in
+B,3 B, B, C A, F,|
+w: die sen hei li ge en
+E,3 F, D,2 B,,2|
+w: ma au ern wo
+E,3 F,/2 E,/2 D, E, F, G,|
+w: mensch de en me ensch e en
+G,2 F,2 x2 B,2|
+w: lie iebt kann
+B,3 B, =C ^C A, F,|
+w: kein ver rä ä te er
+E,3 F, D,2 F,2|
+w: la au ern weil
+G, B,2 G,/2 E,/2 D, F,2 E,/2 C,/2|
+w: ma an de em fa eind vä er
+B,,3 B,,/2 x/2 x4|
+w: gibt_
+x4 x B,, C, D,|
+w: wen sol che
+E, F, G, A, B, C/2 B,/2 A,/2 G,/2 F,/2 E,/2|
+w: le e re en ni i i i icht ä er
+G,/2 F,3 F,/2 x B,, C, D,|
+w: fro eun_ ver die net
+E, F, G, A, B, C/2 B,/2 A,/2 G,/2 F,/2 E,/2|
+w: ni icht a ein me e e e ensch zu u
+G,/2 F,3 F,/2 x F, G, A,|
+w: sa in_ wen sol che
+B,3 G, E,3 F,/2 G,/2|
+w: leh ren nicht ä er
+B,2 A,2 x F, F, F,|
+w: freu en ver die net
+G,2 F,/2 G,/2 A,/2 F,/2 E,2 F,2|
+w: nicht a a ei in mensch zu
+F,2 G,2 x E, B,, A,,|
+w: sa ein wen sol che
+G,,3 G,, C,3 C,|
+w: leh ren nicht er
+F,,3 F,,/2 x3/2 B,, B,, B,,|
+w: freun_ ver die net
+E,2 A,,2 B,,2 B,,2|
+w: nicht ein mensch zu
+E,3 E,/2 x/2 G,,3 G,,/2 x/2|
+w: sein_ ein_
+F,,4 A,,2 C,2|
+w: me ensch ein
+C,/2 B,,4 B,, x/2 C, D,|
+w: me ensch_ zu u
+E,3 E,/2 x/2 x4|
+w: sein_
+x8|
+x7
