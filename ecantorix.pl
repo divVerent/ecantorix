@@ -67,7 +67,7 @@ our $OUTPUT_FORMAT = 'lmms';
 our $OUTPUT_MIDI_PREFIX = 'vocals:';
 
 # tools (usually need no changes here)
-our $ESPEAK = 'espeak -v "$VOICE" ${VOICE_PATH:+--path="$VOICE_PATH"} -z -p "$PITCH" -s "$SPEED" -w "$OUT" -m "<prosody range=\"0\">$SYLLABLE</prosody>"';
+our $ESPEAK = 'espeak -v "$VOICE" ${VOICE_PATH:+--path="$VOICE_PATH"} -z -p "$PITCH" -s "$SPEED" -w "$OUT" -m "<prosody range=\"0\"> $SYLLABLE </prosody>"';
 our $SOX_PROCESS_IN_TO_S16LE = 'sox "$IN" -t raw -r "$RATE" -e signed -b 16 -c 1 - remix - $PREEFFECTS silence 1 1s 0 reverse silence 1 1s 0 reverse';
 our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT = 'sox -t raw -r "$RATE" -e signed -b 16 -c 1 - "$OUT" tempo -s "$TEMPO" $PITCHBEND $AFTEREFFECTS';
 
