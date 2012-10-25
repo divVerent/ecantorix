@@ -686,7 +686,7 @@ sub vsq2midi($)
 			my @channels = keys %channels;
 			if(@channels == 1)
 			{
-				$channel = [keys(%channels)]->[0];
+				$channel = $channels[0];
 			}
 			else
 			{
