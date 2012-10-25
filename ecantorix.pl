@@ -19,7 +19,6 @@
 use strict;
 use warnings;
 use MIDI;
-use MIDI::Opus;
 use Math::FFT;
 use Cwd;
 
@@ -125,6 +124,20 @@ sub reltime(@)
 		my $tsave = $t;
 		$t = $_->[1];
 		[$_->[0], $t - $tsave, @{$_}[2..(@$_-1)]];
+	} @_;
+}
+
+sub sorttime(@)
+{
+	my $i = 0;
+	return map {
+		[@$_[1..@$_-1]]
+	} sort {
+		$a->[2] <=> $b->[2]
+			or
+		$a->[0] <=> $b->[0]
+	} map {
+		[$i++, @$_]
 	} @_;
 }
 
@@ -582,6 +595,95 @@ sub play_note($$$$$$$)
 	$out->{sample}->($out_self, $tick, $dtick, $outname);
 }
 
+sub vsq2midi($)
+{
+	my ($opus) = @_;
+	my $is_vsq = 0;
+	for my $track($opus->tracks())
+	{
+		my @vsq_ini = ();
+		my @events = ();
+		my %channels = ();
+		for(abstime $track->events())
+		{
+			if($_->[0] eq 'text_event' && $_->[2] =~ /^DM:(\d+):(.*)/s)
+			{
+				$vsq_ini[$1] = $2;
+			}
+			else
+			{
+				push @events, $_;
+				if($_->[0] eq 'control_change')
+				{
+					++$channels{$_->[2]};
+				}
+			}
+		}
+		if(@vsq_ini)
+		{
+			my $channel = 0;
+			my @channels = keys %channels;
+			if(@channels == 1)
+			{
+				$channel = [keys(%channels)]->[0];
+			}
+			else
+			{
+				warn "No unique channel on a vocaloid track: @channels\n";
+			}
+			my $vsq_ini = join "", @vsq_ini;
+			require Config::Tiny;
+			my $ini = Config::Tiny->read_string($vsq_ini)
+				or die "VSQ import: text events do not form an INI file";
+			my $lasttext = "";
+			for my $k(sort { $a <=> $b } keys %{$ini->{EventList}})
+			{
+				my $v = $ini->{EventList}->{$k};
+				next
+					if $v eq 'EOS';
+				my $ev = $ini->{$v};
+				if($ev->{Type} eq 'Anote')
+				{
+					my $start = $k;
+					my $len = $ev->{'Length'};
+					my $note = $ev->{'Note#'};
+					my $lyrichandle = $ev->{'LyricHandle'};
+					my $velocity = $ev->{'Dynamics'};
+					my $lyric = $ini->{$lyrichandle};
+					unless($lyric->{L0} =~ /^"([^"]*)","([^"]*)"/)
+					{
+						warn "Invalid lyric L0 info: $lyric->{L0}";
+						next;
+					}
+					my $text = $1;
+					my $phonemes = $2;
+					if($text ne "-")
+					{
+						push @events, ['lyric', $start, $text];
+					}
+					push @events, ['text_event_0f', $start, $phonemes];
+					push @events, ['note_on', $start, $channel, $note, $velocity];
+					push @events, ['note_off', $start + $len, $channel, $note, $velocity];
+					$lasttext = $text;
+				}
+				else
+				{
+					warn "Unsupported VSQ event: $ev->{Type}";
+				}
+			}
+			$track->events_r([reltime sorttime @events]);
+			$is_vsq = 1;
+		}
+	}
+	if($is_vsq)
+	{
+		$opus->write_to_file("devsq.mid");
+	}
+}
+
+# undo vocaloid stuff
+vsq2midi $opus;
+
 # we store tempo as seconds per tick
 my @tempi = map {
 	$_->[0] eq 'set_tempo'
@@ -635,7 +737,7 @@ for my $trackno(0..@$tracks-1)
 	# channels = hash of channel => notes
 	# notes = array of [starttick, ticks, pitch]
 	my @lyrics = map {
-		$_->[0] =~ /^lyrics$|^text_event$/ ? [$_->[1], $_->[2], {}] : ()
+		$_->[0] =~ /^lyric$|^text_event$/ ? [$_->[1], $_->[2], {}] : ()
 	} @events;
 	my $insert_note = sub
 	{

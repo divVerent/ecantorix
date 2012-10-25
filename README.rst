@@ -26,6 +26,7 @@ Dependencies
 * sox
 * LMMS
 * Perl
+  * Config::Tiny
   * MIDI::Opus
   * Math::FFT
 
@@ -59,6 +60,10 @@ Once you have such an input file, run::
 The result is a LMMS project file that can be processed to an audio file using::
 
 	lmms -o foo.wav --render foo.mmp
+
+Also, there is now preliminary support for Vocaloid (VSQ) files. The phonemes
+are not used yet, though, as doing this would require an external mapping table
+that depends on the Vocaloid voice in use.
 
 License
 =======
