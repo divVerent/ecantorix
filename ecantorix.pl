@@ -727,7 +727,7 @@ sub vsq2midi($)
 								$ephonemes .= $_;
 							}
 						}
-						if($ephonemes !~ /[@325aAeEiIoO0uUV]/)
+						if($ephonemes !~ /[\@325aAeEiIoO0uUV]/)
 						{
 							if($ephonemes =~ /(.)$/)
 							{
