@@ -510,10 +510,13 @@ sub play_note($$$$$$$)
 		my $duration = $end - $start;
 		$pitchbend_t = $end;
 		my $cents = $semitones * 100;
+		my $cents_str = sprintf "%.1f", $cents;
+		$cents_str = "0.001"
+			if $cents_str eq "0.0"; # prevent sox error
 		$duration = 0.001
 			if $duration < 0.001;
-		$pitchbend_str .= sprintf " %.6f,%.1f,%.6f",
-			$delay, $cents, $duration;
+		$pitchbend_str .= sprintf " %.6f,%s,%.6f",
+			$delay, $cents_str, $duration;
 	}
 	$pitchbend_str = "bend$pitchbend_str"
 		if length $pitchbend_str;
