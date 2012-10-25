@@ -19,6 +19,7 @@
 use strict;
 use warnings;
 use MIDI;
+use URI::Escape;
 use Math::FFT;
 use Cwd;
 
@@ -529,7 +530,7 @@ sub play_note($$$$$$$)
 	my $speed = $ESPEAK_SPEED_START;
 
 	(my $pitchbend_fstr = $pitchbend_str) =~ s/ /_/g;
-	(my $syllable_fstr = $syllable) =~ s/[^A-Za-z0-9\200-\377]/_/g;
+	my $syllable_fstr = uri_escape $syllable;
 	my $outname = sprintf "%s/%s_%s_%.2f_%.2f_%s_%s.wav",
 		$ESPEAK_CACHE, $ESPEAK_CACHE_PREFIX, $ESPEAK_VOICE, $dt, $hz, $pitchbend_fstr, $syllable_fstr;
 
@@ -729,10 +730,9 @@ sub vsq2midi($)
 						}
 						if($ephonemes !~ /[\@325aAeEiIoO0uUV]/)
 						{
-							if($ephonemes =~ /(.)$/)
-							{
-								$ephonemes .= $1 x 7; # if all we have is consonants, repeat the last one a lot
-							}
+							# if all we have is consonants, repeat the last one a lot
+							# note: for n^ we need to repeat the n
+							$ephonemes =~ s/(.)(\^?)$/$1$1$1$1$1$1$1$1$2/;
 						}
 						push @events, ['lyric', $start, "[[$ephonemes]]"];
 					}
