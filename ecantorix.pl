@@ -91,6 +91,9 @@ our $ANALYZE_BIAS = 1.4;
 our $ANALYZE_RANGE1 = 2;
 our $ANALYZE_RANGE2 = 16;
 our $ANALYZE_ENV = 3;
+
+# vocaloid conversion
+our $VSQ_USE_PHONEMES = 1;
 # end of customizable variables
 
 my ($filename, $controlfile) = @ARGV;
@@ -598,6 +601,55 @@ sub play_note($$$$$$$)
 	$out->{sample}->($out_self, $tick, $dtick, $outname);
 }
 
+our %VSQ_PHONEMES = (
+	"a" => "A:",
+	"b" => "b",
+	"b'" => "b",
+	"C" => "C",
+	"d" => "d",
+	"d'" => "d",
+	"e" => "e",
+	"g" => "g",
+	"g'" => "g",
+	"h" => "h",
+	"i" => "I",
+	"j" => "j",
+	"J" => "n^",
+	"k" => "k",
+	"k'" => "k",
+	"m" => "m",
+	"m'" => "m",
+	"M" => "u:", # ?
+	"n" => "n",
+	"N" => "N",
+	"N'" => "N",
+	"N\\" => "N",
+	"N\\'" => "N",
+	"o" => "o:", # ?
+	"p" => "p",
+	"p\\" => "f",
+	"p'" => "p",
+	"p\\'" => "f",
+	"s" => "s",
+	"S" => "S",
+	"t" => "t",
+	"t'" => "tC",
+	"w" => "w",
+	"z" => "z",
+	"Z" => "Z",
+	"1" => "h",
+	"2" => "h",
+	"3" => "h",
+	"4" => "r",
+	"4'" => "r",
+	"5" => "h",
+	"6" => "h",
+	"*" => "h",
+	"dz" => "dz",
+	"ts" => "ts",
+	"tS" => "tS",
+	"dZ" => "dZ"
+);
 sub vsq2midi($)
 {
 	my ($opus) = @_;
@@ -660,11 +712,37 @@ sub vsq2midi($)
 					}
 					my $text = $1;
 					my $phonemes = $2;
-					if($text ne "-")
+					if($VSQ_USE_PHONEMES)
 					{
-						push @events, ['lyric', $start, $text];
+						my $ephonemes = "";
+						for(split /\s+/, $phonemes)
+						{
+							if(exists $VSQ_PHONEMES{$_})
+							{
+								$ephonemes .= $VSQ_PHONEMES{$_};
+							}
+							else
+							{
+								warn "Unknown phoneme: $_, trying as-is";
+								$ephonemes .= $_;
+							}
+						}
+						if($ephonemes !~ /[@325aAeEiIoO0uUV]/)
+						{
+							if($ephonemes =~ /(.)$/)
+							{
+								$ephonemes .= $1 x 7; # if all we have is consonants, repeat the last one a lot
+							}
+						}
+						push @events, ['lyric', $start, "[[$ephonemes]]"];
 					}
-					push @events, ['text_event_0f', $start, $phonemes];
+					else
+					{
+						if($text ne "-")
+						{
+							push @events, ['lyric', $start, $text];
+						}
+					}
 					push @events, ['note_on', $start, $channel, $note, $velocity];
 					push @events, ['note_off', $start + $len, $channel, $note, $velocity];
 					$lasttext = $text;
