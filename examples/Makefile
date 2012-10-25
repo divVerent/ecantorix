@@ -13,6 +13,7 @@ espeak-data:
 	mkdir espeak-data
 	cp -R /usr/share/espeak-data/* espeak-data/
 	cp -R ~/espeak-data/* espeak-data/ || true
+	cp extravoices/* espeak-data/voices/\!v
 
 %.mid: %.abc
 	abc2midi $< 0 -o $@

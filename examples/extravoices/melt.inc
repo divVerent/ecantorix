@@ -1,0 +1,6 @@
+$ESPEAK_VOICE .= "+melt";
+$ESPEAK_VOICE_PATH = ".";
+$ESPEAK_USE_PITCH_ADJUST_TAB = 1;
+$ANALYZE_MINFREQ = 400;
+$ANALYZE_MAXFREQ = 500;
+do 'extravoices/tremolo.inc';

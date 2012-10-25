@@ -536,7 +536,7 @@ sub play_note($$$$$$$)
 
 	if(!-f $outname)
 	{
-		print STDERR "Rendering $outname...\n";
+		print STDERR "Rendering $outname...";
 		my $thisdt;
 		my $thishz;
 		my $data;
@@ -570,6 +570,8 @@ sub play_note($$$$$$$)
 				$ESPEAK_SPEED_MAX)]->[1];
 		}
 
+		print STDERR "pitch=$pitch speed=$speed";
+
 		my $pitchfix = $hz / $thishz;
 		my $lengthfix = $dt / $thisdt;
 		#print STDERR "Pitch correction: $thishz -> $hz\n";
@@ -598,7 +600,10 @@ sub play_note($$$$$$$)
 		print $fh $data;
 		close $fh
 			or die "$SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT: $! $?";
+
+		print STDERR "\n";
 	}
+
 	$out->{sample}->($out_self, $tick, $dtick, $outname);
 }
 
@@ -755,10 +760,6 @@ sub vsq2midi($)
 			$track->events_r([reltime sorttime @events]);
 			$is_vsq = 1;
 		}
-	}
-	if($is_vsq)
-	{
-		$opus->write_to_file("devsq.mid");
 	}
 }
 
