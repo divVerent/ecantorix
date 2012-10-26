@@ -457,6 +457,8 @@ sub find_pitch_cached($)
 
 	my $mi = $ESPEAK_PITCH_MIN;
 	my $ma = $ESPEAK_PITCH_MAX;
+	return $mi
+		if $mi == $ma;
 	my $mihz = get_pitch_cached($mi);
 	return $mi
 		if $freq <= $mihz;

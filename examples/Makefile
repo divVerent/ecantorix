@@ -27,4 +27,4 @@ espeak-data:
 
 clean:
 	$(RM) -r espeak-data
-	$(RM) *.wav *.mid *.mmp
+	$(RM) *.wav *.mid *.mmp *.pitch
