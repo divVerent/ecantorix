@@ -70,6 +70,9 @@ our $OUTPUT_MIDI_PREFIX = 'vocals:';
 our $ESPEAK = 'espeak -v "$VOICE" ${VOICE_PATH:+--path="$VOICE_PATH"} -z -p "$PITCH" -s "$SPEED" -w "$OUT" -m "<prosody range=\"0\"> $SYLLABLE </prosody>"';
 our $SOX_PROCESS_IN_TO_S16LE = 'sox "$IN" -t raw -r "$RATE" -e signed -b 16 -c 1 - remix - $PREEFFECTS silence 1 1s 0 reverse silence 1 1s 0 reverse';
 our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT = 'sox -t raw -r "$RATE" -e signed -b 16 -c 1 - "$OUT" tempo -s "$TEMPO" $PITCHBEND $AFTEREFFECTS';
+our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT_USES_PITCH = 0;
+#our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT = 'sox -t raw -r "$RATE" -e signed -b 16 -c 1 - -t wav - | rubberband -T"$TEMPO" -f"$PITCH" - - | sox -t wav - "$OUT" $PITCHBEND $AFTEREFFECTS';
+#our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT_USES_PITCH = 1;
 
 # espeak tool options (normally don't touch this)
 our $ESPEAK_ATTEMPTS = 8;
@@ -586,15 +589,22 @@ sub play_note($$$$$$$)
 				getpitch([unpack("s*", $data)], $SOX_RATE / $ANALYZE_MAXFREQ, $SOX_RATE / $ANALYZE_MINFREQ, "$outname.plot");
 			}
 		}
-		my $rate0 = $SOX_RATE;
+		my $rate = $SOX_RATE;
 
 		my $tempofix = 1 / $lengthfix;
-		my $rate = int(0.5 + $rate0 * $pitchfix);
-		$tempofix *= $rate0 / $rate;;
+
+		if(!$SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT_USES_PITCH)
+		{
+			my $rate0 = $rate;
+			$rate = int(0.5 + $rate0 * $pitchfix);
+			$tempofix *= $rate0 / $rate;;
+			$pitchfix = 1;
+		}
 
 		local $ENV{AFTEREFFECTS} = $SOX_AFTEREFFECTS;
 		local $ENV{RATE} = $rate;
 		local $ENV{TEMPO} = $tempofix;
+		local $ENV{PITCH} = $pitchfix;
 		local $ENV{OUT} = $outname;
 		local $ENV{PITCHBEND} = $pitchbend_str;
 		open my $fh, '|-', $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT
