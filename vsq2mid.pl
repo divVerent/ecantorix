@@ -74,110 +74,132 @@ our %VSQ_PHONEMES = (
 	"tS" => "tS",
 	"dZ" => "dZ"
 );
-sub vsq2midi($$)
+
+sub mapphonemes($)
+{
+	my ($phonemes) = @_;
+	my $ephonemes = "";
+	for(split /\s+/, $phonemes)
+	{
+		if(exists $VSQ_PHONEMES{$_})
+		{
+			$ephonemes .= $VSQ_PHONEMES{$_};
+		}
+		else
+		{
+			warn "Unknown phoneme: $_, trying as-is";
+			$ephonemes .= $_;
+		}
+	}
+	if($ephonemes !~ /[\@325aAeEiIoO0uUV]/)
+	{
+		# if all we have is consonants, repeat the last one a lot
+		# note: for n^ we need to repeat the n
+		$ephonemes =~ s/(.)(\^?)$/$1$1$1$1$1$1$1$1$2/;
+	}
+}
+
+sub mapAnote($$$$$)
+{
+	my ($start, $ev, $lyric, $channel, $options) = @_;
+	my @events = ();
+	my $len = $ev->{'Length'};
+	my $note = $ev->{'Note#'};
+	my $velocity = $ev->{'Dynamics'};
+	unless($lyric->{L0} =~ /^"([^"]*)","([^"]*)"/)
+	{
+		warn "Invalid lyric L0 info: $lyric->{L0}";
+		next;
+	}
+	my $text = $1;
+	my $phonemes = $2;
+	if($options->{use_phonemes})
+	{
+		my $ephonemes = mapphonemes $phonemes;
+		push @events, ['lyric', $start, "[[$ephonemes]]"];
+	}
+	else
+	{
+		if($text ne "-")
+		{
+			push @events, ['lyric', $start, $text];
+		}
+	}
+	push @events, ['note_on', $start, $channel, $note, $velocity];
+	push @events, ['note_off', $start + $len, $channel, $note, $velocity];
+	return @events;
+}
+
+sub mapvsqhash($$$)
+{
+	my ($ini, $channel, $options) = @_;
+	my @events = ();
+	for my $k(sort { $a <=> $b } keys %{$ini->{EventList}})
+	{
+		my $v = $ini->{EventList}->{$k};
+		next
+			if $v eq 'EOS';
+		my $ev = $ini->{$v};
+		if($ev->{Type} eq 'Anote')
+		{
+			my $lyrichandle = $ev->{'LyricHandle'};
+			my $lyric = $ini->{$lyrichandle};
+			push @events,
+				mapAnote $k, $ev, $lyric, $channel, $options;
+		}
+		else
+		{
+			warn "Unsupported VSQ event: $ev->{Type}";
+		}
+	}
+	return @events;
+}
+
+sub maptrack($$)
+{
+	my ($track, $options) = @_;
+	my @vsq_ini = ();
+	my @events = ();
+	my %channels = ();
+	for(abstime $track->events())
+	{
+		if($_->[0] eq 'text_event' && $_->[2] =~ /^DM:(\d+):(.*)/s)
+		{
+			$vsq_ini[$1] = $2;
+		}
+		else
+		{
+			push @events, $_;
+			if($_->[0] eq 'control_change')
+			{
+				++$channels{$_->[2]};
+			}
+		}
+	}
+	if(@vsq_ini)
+	{
+		my $channel = 0;
+		my @channels = keys %channels;
+		warn "No unique channel on a vocaloid track: @channels\n"
+			if @channels != 1;
+		$channel = $channels[0]
+			if @channels == 1;
+
+		my $vsq_ini = join "", @vsq_ini;
+		require Config::Tiny;
+		my $ini = Config::Tiny->read_string($vsq_ini)
+			or die "VSQ import: invalid INI file";
+		push @events, mapvsqhash $ini, $channel, $options;
+		$track->events_r([reltime sorttime @events]);
+	}
+}
+
+sub mapopus($$)
 {
 	my ($opus, $options) = @_;
-	my $is_vsq = 0;
 	for my $track($opus->tracks())
 	{
-		my @vsq_ini = ();
-		my @events = ();
-		my %channels = ();
-		for(abstime $track->events())
-		{
-			if($_->[0] eq 'text_event' && $_->[2] =~ /^DM:(\d+):(.*)/s)
-			{
-				$vsq_ini[$1] = $2;
-			}
-			else
-			{
-				push @events, $_;
-				if($_->[0] eq 'control_change')
-				{
-					++$channels{$_->[2]};
-				}
-			}
-		}
-		if(@vsq_ini)
-		{
-			my $channel = 0;
-			my @channels = keys %channels;
-			if(@channels == 1)
-			{
-				$channel = $channels[0];
-			}
-			else
-			{
-				warn "No unique channel on a vocaloid track: @channels\n";
-			}
-			my $vsq_ini = join "", @vsq_ini;
-			require Config::Tiny;
-			my $ini = Config::Tiny->read_string($vsq_ini)
-				or die "VSQ import: text events do not form an INI file";
-			my $lasttext = "";
-			for my $k(sort { $a <=> $b } keys %{$ini->{EventList}})
-			{
-				my $v = $ini->{EventList}->{$k};
-				next
-					if $v eq 'EOS';
-				my $ev = $ini->{$v};
-				if($ev->{Type} eq 'Anote')
-				{
-					my $start = $k;
-					my $len = $ev->{'Length'};
-					my $note = $ev->{'Note#'};
-					my $lyrichandle = $ev->{'LyricHandle'};
-					my $velocity = $ev->{'Dynamics'};
-					my $lyric = $ini->{$lyrichandle};
-					unless($lyric->{L0} =~ /^"([^"]*)","([^"]*)"/)
-					{
-						warn "Invalid lyric L0 info: $lyric->{L0}";
-						next;
-					}
-					my $text = $1;
-					my $phonemes = $2;
-					if($options->{use_phonemes})
-					{
-						my $ephonemes = "";
-						for(split /\s+/, $phonemes)
-						{
-							if(exists $VSQ_PHONEMES{$_})
-							{
-								$ephonemes .= $VSQ_PHONEMES{$_};
-							}
-							else
-							{
-								warn "Unknown phoneme: $_, trying as-is";
-								$ephonemes .= $_;
-							}
-						}
-						if($ephonemes !~ /[\@325aAeEiIoO0uUV]/)
-						{
-							# if all we have is consonants, repeat the last one a lot
-							# note: for n^ we need to repeat the n
-							$ephonemes =~ s/(.)(\^?)$/$1$1$1$1$1$1$1$1$2/;
-						}
-						push @events, ['lyric', $start, "[[$ephonemes]]"];
-					}
-					else
-					{
-						if($text ne "-")
-						{
-							push @events, ['lyric', $start, $text];
-						}
-					}
-					push @events, ['note_on', $start, $channel, $note, $velocity];
-					push @events, ['note_off', $start + $len, $channel, $note, $velocity];
-					$lasttext = $text;
-				}
-				else
-				{
-					warn "Unsupported VSQ event: $ev->{Type}";
-				}
-			}
-			$track->events_r([reltime sorttime @events]);
-			$is_vsq = 1;
-		}
+		maptrack $track, $options;
 	}
 }
 
@@ -194,6 +216,6 @@ GetOptions(
 );
 my $opus = MIDI::Opus->new({from_file => $infile})
 	or die "MIDI::Opus: could not read $infile";
-vsq2midi $opus, $options;
+mapopus $opus, $options;
 $opus->write_to_file($outfile)
 	or die "MIDI::Opus: could not write $outfile";
