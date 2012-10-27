@@ -1,32 +1,22 @@
+// perl ../voiceshape/voiceshape.pl -P 440 -t 2 -f 1.25 -w 0.8 -c 0.6 -U 0 -R 0 -S 0 < /usr/share/espeak-data/voices/\!v/f1
+breath 0 0 0 0 0 0 0 0
+consonants 60 60
+echo 0 0
+flutter 0
+formant 0 143 80 150 0
+formant 1 150 80 180 0
+formant 2 125 70 150 187
+formant 3 143 70 150 0
+formant 4 137 80 150 0
+formant 5 137 90 150 0
+formant 6 131 80 150 0
+formant 7 137 70 150 0
+formant 8 137 70 150 0
+gender female 70
 language variant
 name female1
-gender female 70
-
-// pitch 140 200
-// pitch 420 600
-// pitch 560 800
 pitch 440 440
-// pitch 700 1000
-
-flutter 0
 roughness 0
-
-// full voice
-voicing 100
-
-// tone 600 170 1200 135 2000 110
+stressAdd 0 0 0 0 0 0 0 0
 tone 1200 170 2400 135 4000 110
-
-// weaker consonants please
-consonants 60 60
-
-// this is the f1 voice, actually, but with formants multiplied by 1.25
-formant 0 143 80 150
-formant 1 150 80 180
-formant 2 125 70 150  150
-formant 3 143 70 150
-formant 4 137 80 150
-formant 5 137 90 150
-formant 6 131 80 150
-formant 7 137 70 150
-formant 8 137 70 150
+voicing 100

@@ -84,6 +84,12 @@ GetOptions(
 
 	'breath|b=s' => sub { for(0..7) { $settings{breath}[$_] *= $_[1]; } },
 	'breath-set|B=s' => sub { my @p = split /\s+/, $_[1]; die "INVALID" if @p < 1; @p = (@p, @p) while @p < 8; $settings{breath} = [@p[0..7]]; },
+
+	'stress|s=s' => sub { for(0..7) { $settings{stressAdd}[$_] *= $_[1]; } },
+	'stress-set|S=s' => sub { for(0..7) { $settings{stressAdd}[$_] = $_[1]; } },
+
+	'tone|t=s' => sub { for(0..@{$settings{tone}}/2-1) { $settings{tone}[2*$_] *= $_[1]; } },
+	'tone-set|T=s' => sub { my @p = split /\s+/, $_[1]; die "INVALID" if !@p or @p % 2; $settings{tone} = [@p]; },
 );
 
 sub getnum {
