@@ -109,7 +109,7 @@ sub mapAnote($$$$$)
 	unless($lyric->{L0} =~ /^"([^"]*)","([^"]*)"/)
 	{
 		warn "Invalid lyric L0 info: $lyric->{L0}";
-		next;
+		return ();
 	}
 	my $text = $1;
 	my $phonemes = $2;
