@@ -75,6 +75,8 @@ our $ESPEAK = 'espeak -v "$VOICE" ${VOICE_PATH:+--path="$VOICE_PATH"} -z -p "$PI
 our $SOX_PROCESS_IN_TO_S16LE = 'sox "$IN" -t raw -r "$RATE" -e signed -b 16 -c 1 - remix - $PREEFFECTS silence 1 1s 0 reverse silence 1 1s 0 reverse';
 our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT = 'sox -t raw -r "$RATE" -e signed -b 16 -c 1 - "$OUT" tempo -s "$TEMPO" $PITCHBEND $AFTEREFFECTS';
 our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT_USES_PITCH = 0;
+our $SOX_TEMPO_MIN = 0.1;
+our $SOX_TEMPO_MAX = 100;
 #our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT = 'sox -t raw -r "$RATE" -e signed -b 16 -c 1 - -t wav - | rubberband -T"$TEMPO" -f"$PITCH" - - | sox -t wav - "$OUT" $PITCHBEND $AFTEREFFECTS';
 #our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT_USES_PITCH = 1;
 
@@ -568,6 +570,11 @@ sub play_note($$$$$$$)
 			$tempofix *= $rate0 / $rate;;
 			$pitchfix = 1;
 		}
+
+		$tempofix = $SOX_TEMPO_MIN
+			if $tempofix < $SOX_TEMPO_MIN;
+		$tempofix = $SOX_TEMPO_MAX
+			if $tempofix > $SOX_TEMPO_MAX;
 
 		local $ENV{AFTEREFFECTS} = $SOX_AFTEREFFECTS;
 		local $ENV{RATE} = $rate;
