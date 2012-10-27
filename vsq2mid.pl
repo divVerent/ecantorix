@@ -16,42 +16,14 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use FindBin;
+use lib $FindBin::Bin;
+
 use strict;
 use warnings;
 use MIDI;
 use Getopt::Long;
-
-sub abstime(@)
-{
-	my $t = 0;
-	return map {
-		[$_->[0], $t += $_->[1], @{$_}[2..(@$_-1)]];
-	} @_;
-}
-
-sub reltime(@)
-{
-	my $t = 0;
-	return map {
-		my $tsave = $t;
-		$t = $_->[1];
-		[$_->[0], $t - $tsave, @{$_}[2..(@$_-1)]];
-	} @_;
-}
-
-sub sorttime(@)
-{
-	my $i = 0;
-	return map {
-		[@$_[1..@$_-1]]
-	} sort {
-		$a->[2] <=> $b->[2]
-			or
-		$a->[0] <=> $b->[0]
-	} map {
-		[$i++, @$_]
-	} @_;
-}
+use eCantorix::Util;
 
 our %VSQ_PHONEMES = (
 	"a" => "A:",
