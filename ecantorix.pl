@@ -115,7 +115,6 @@ if(!defined $ESPEAK_PITCH_FACTOR and $ESPEAK_USE_PITCH_ADJUST_TAB)
 }
 
 my $opus = MIDI::Opus->new({from_file => $filename});
-my $tracks = $opus->tracks_r();
 
 sub tick2lmms($)
 {
@@ -588,56 +587,6 @@ sub play_note($$$$$$$)
 	$out->{sample}->($out_self, $tick, $dtick, $outname);
 }
 
-our %VSQ_PHONEMES = (
-	"a" => "A:",
-	"b" => "b",
-	"b'" => "b",
-	"C" => "C",
-	"d" => "d",
-	"d'" => "d",
-	"e" => "e",
-	"g" => "g",
-	"g'" => "g",
-	"h" => "h",
-	"i" => "I",
-	"j" => "j",
-	"J" => "n^",
-	"k" => "k",
-	"k'" => "k",
-	"m" => "m",
-	"m'" => "m",
-	"M" => "u:", # ?
-	"n" => "n",
-	"N" => "N",
-	"N'" => "N",
-	"N\\" => "N",
-	"N\\'" => "N",
-	"o" => "o:", # ?
-	"p" => "p",
-	"p\\" => "f",
-	"p'" => "p",
-	"p\\'" => "f",
-	"s" => "s",
-	"S" => "S",
-	"t" => "t",
-	"t'" => "tC",
-	"w" => "w",
-	"z" => "z",
-	"Z" => "Z",
-	"1" => "h",
-	"2" => "h",
-	"3" => "h",
-	"4" => "l", # Japanese can't speak r ;)
-	"4'" => "l", # Japanese can't speak r ;)
-	"5" => "h",
-	"6" => "h",
-	"*" => "h",
-	"dz" => "dz",
-	"ts" => "ts",
-	"tS" => "tS",
-	"dZ" => "dZ"
-);
-
 # we store tempo as seconds per tick
 my @tempi = map {
 	$_->[0] eq 'set_tempo'
@@ -668,16 +617,16 @@ sub tick2sec($)
 	return $sec;
 };
 
+my $tracks = $opus->tracks_r();
+
 my $totallen = 0;
 for my $trackno(0..@$tracks-1)
 {
-	print STDERR "Processing track $trackno...\n";
 	my $track = $tracks->[$trackno];
 	my @events = abstime $track->events();
 	$totallen = $events[-1][1]
 		if @events and $events[-1][1] > $totallen;;
 }
-
 $out->{header}->($out_self, $totallen, \@tempi);
 
 for my $trackno(0..@$tracks-1)
