@@ -97,6 +97,7 @@ sub mapphonemes($)
 		# note: for n^ we need to repeat the n
 		$ephonemes =~ s/(.)(\^?)$/$1$1$1$1$1$1$1$1$2/;
 	}
+	return $ephonemes;
 }
 
 sub mapAnote($$$$$)
