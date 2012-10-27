@@ -170,7 +170,7 @@ EOF
 EOF
 		},
 		sample => sub {
-			my ($self, $tick, $dtick, $outname) = @_;
+			my ($self, $tick, $dtick, $time, $dtime, $outname) = @_;
 			my $lmms_tick = tick2lmms($tick);
 			my $lmms_dtick = tick2lmms($tick + $dtick) - $lmms_tick;
 			print <<EOF;
@@ -201,7 +201,7 @@ EOF
 			$self->{opus}->tracks($metatrack, $notetrack);
 		},
 		sample => sub {
-			my ($self, $tick, $dtick, $outname) = @_;
+			my ($self, $tick, $dtick, $time, $dtime, $outname) = @_;
 			my $track = $self->{opus}->tracks_r()->[-1];
 			$outname =~ s/^.*\///;
 			$track->new_event(
@@ -584,7 +584,7 @@ sub play_note($$$$$$$)
 		print STDERR "\n";
 	}
 
-	$out->{sample}->($out_self, $tick, $dtick, $outname);
+	$out->{sample}->($out_self, $tick, $dtick, $t, $dt, $outname);
 }
 
 # we store tempo as seconds per tick
