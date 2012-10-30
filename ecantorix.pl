@@ -671,6 +671,7 @@ sub play_note($$$$$$$)
 			local $ENV{PITCH} = $pitchfix;
 			local $ENV{OUT} = $outname;
 			local $ENV{PITCHBEND} = $pitchbend_str;
+			local $ENV{TEMP} = $ESPEAK_TEMPDIR;
 			open my $fh, '|-', $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT
 				or die "$SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT: $!";
 			$fh;
