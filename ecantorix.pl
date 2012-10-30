@@ -62,8 +62,8 @@ our $SOX_AFTEREFFECTS;
 
 # paths
 our $ESPEAK_CACHE = ".";
+our $ESPEAK_TEMPDIR = undef; # use $ESPEAK_CACHE/tmp by default
 our $ESPEAK_CACHE_PREFIX = "";
-our $ESPEAK_TEMPFILE = "out.wav";
 
 # output
 our $OUTPUT_FORMAT = 'lmms';
@@ -127,6 +127,8 @@ if(!defined $ESPEAK_PITCH_FACTOR and $ESPEAK_USE_PITCH_ADJUST_TAB)
 }
 
 $ESPEAK_CACHE = Cwd::abs_path($ESPEAK_CACHE);
+$ESPEAK_TEMPDIR //= "$ESPEAK_CACHE/tmp";
+mkdir "$ESPEAK_TEMPDIR";
 
 my $opus = MIDI::Opus->new({from_file => $filename});
 
@@ -240,11 +242,15 @@ EOF
 			my ($self, $tick, $dtick, $time, $dtime, $outname) = @_;
 			my $sample_start = int($time * $SOX_RATE);
 			print STDERR "$outname @ $sample_start...\n";
-			local $ENV{IN} = $outname;
-			local $ENV{RATE} = $SOX_RATE;
 			my $cmd = 'sox "$IN" -t raw -r "$RATE" -e signed -b 16 -c 1 -';
-			open my $fh, '-|', "$cmd"
-				or die "$cmd: $!";
+			my $fh = do
+			{
+				local $ENV{IN} = $outname;
+				local $ENV{RATE} = $SOX_RATE;
+				open my $fh, '-|', "$cmd"
+					or die "$cmd: $!";
+				$fh;
+			};
 			my $data = do { undef local $/; <$fh>; };
 			close $fh
 				or die "$cmd: $! $?";
@@ -276,11 +282,15 @@ EOF
 			print STDERR "$clip clipped samples\n"
 				if $clip > 0;
 			print STDERR "writing...\n";
-			local $ENV{OUT} = $OUTPUT_FILE;
-			local $ENV{RATE} = $SOX_RATE;
 			my $cmd = 'sox -t raw -r "$RATE" -e signed -b 16 -c 1 - -t wav "$OUT"';
-			open my $fh, '|-', "$cmd"
-				or die "$cmd: $!";
+			my $fh = do
+			{
+				local $ENV{OUT} = $OUTPUT_FILE;
+				local $ENV{RATE} = $SOX_RATE;
+				open my $fh, '|-', "$cmd"
+					or die "$cmd: $!";
+				$fh;
+			};
 			print $fh pack "s*", @{$self->{buf}};
 			close $fh
 				or die "$cmd: $! $?";
@@ -421,19 +431,27 @@ sub getpitch($$$$)
 sub get_voice_sample($$$)
 {
 	my ($pitch, $speed, $syllable) = @_;
-	local $ENV{OUT} = $ESPEAK_TEMPFILE;
-	local $ENV{PITCH} = $pitch;
-	local $ENV{SPEED} = $speed;
-	local $ENV{VOICE} = $ESPEAK_VOICE;
-	local $ENV{VOICE_PATH} = $ESPEAK_VOICE_PATH;
-	local $ENV{SYLLABLE} = $syllable;
-	0 == system $ESPEAK
-		or die "$ESPEAK: $! $?";
-	local $ENV{PREEFFECTS} = $SOX_PREEFFECTS;
-	local $ENV{RATE} = $SOX_RATE;
-	local $ENV{IN} = $ESPEAK_TEMPFILE;
-	open my $fh, '-|', $SOX_PROCESS_IN_TO_S16LE
-		or die "$SOX_PROCESS_IN_TO_S16LE: $!";
+	{
+		local $ENV{OUT} = $ESPEAK_TEMPDIR . "/espeak_raw.wav";
+		local $ENV{PITCH} = $pitch;
+		local $ENV{SPEED} = $speed;
+		local $ENV{VOICE} = $ESPEAK_VOICE;
+		local $ENV{VOICE_PATH} = $ESPEAK_VOICE_PATH;
+		local $ENV{SYLLABLE} = $syllable;
+		local $ENV{TEMP} = $ESPEAK_TEMPDIR;
+		0 == system $ESPEAK
+			or die "$ESPEAK: $! $?";
+	}
+	my $fh = do
+	{
+		local $ENV{PREEFFECTS} = $SOX_PREEFFECTS;
+		local $ENV{RATE} = $SOX_RATE;
+		local $ENV{IN} = $ESPEAK_TEMPDIR . "/espeak_raw.wav";
+		local $ENV{TEMP} = $ESPEAK_TEMPDIR;
+		open my $fh, '-|', $SOX_PROCESS_IN_TO_S16LE
+			or die "$SOX_PROCESS_IN_TO_S16LE: $!";
+		$fh;
+	};
 	my $data = do { undef local $/; <$fh>; };
 	close $fh
 		or die "$SOX_PROCESS_IN_TO_S16LE: $! $?";
@@ -645,14 +663,18 @@ sub play_note($$$$$$$)
 		$tempofix = $SOX_TEMPO_MAX
 			if $tempofix > $SOX_TEMPO_MAX;
 
-		local $ENV{AFTEREFFECTS} = $SOX_AFTEREFFECTS;
-		local $ENV{RATE} = $rate;
-		local $ENV{TEMPO} = $tempofix;
-		local $ENV{PITCH} = $pitchfix;
-		local $ENV{OUT} = $outname;
-		local $ENV{PITCHBEND} = $pitchbend_str;
-		open my $fh, '|-', $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT
-			or die "$SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT: $!";
+		my $fh = do
+		{
+			local $ENV{AFTEREFFECTS} = $SOX_AFTEREFFECTS;
+			local $ENV{RATE} = $rate;
+			local $ENV{TEMPO} = $tempofix;
+			local $ENV{PITCH} = $pitchfix;
+			local $ENV{OUT} = $outname;
+			local $ENV{PITCHBEND} = $pitchbend_str;
+			open my $fh, '|-', $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT
+				or die "$SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT: $!";
+			$fh;
+		};
 		print $fh $data;
 		close $fh
 			or die "$SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT: $! $?";
