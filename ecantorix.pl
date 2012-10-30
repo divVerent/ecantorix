@@ -245,8 +245,23 @@ EOF
 		footer => sub {
 			my ($self) = @_;
 			print STDERR "filling...\n";
-			$_ //= 0
-				for @{$self->{buf}};
+			my $clip = 0;
+			for(@{$self->{buf}})
+			{
+				$_ //= 0;
+				if($_ > 32767)
+				{
+					++$clip;
+					$_ = 32767;
+				}
+				if($_ < -32768)
+				{
+					++$clip;
+					$_ = -32768;
+				}
+			}
+			print STDERR "$clip clipped samples\n"
+				if $clip > 0;
 			print STDERR "writing...\n";
 			local $ENV{OUT} = $OUTPUT_FILE;
 			local $ENV{RATE} = $SOX_RATE;
