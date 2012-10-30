@@ -30,7 +30,7 @@ espeak-data:
 
 %-xon.mid: %.mid %.conf espeak-data
 	mkdir -p cache
-	$(ECANTORIX) -C $*.conf -c cache -O mid --output-midi-prefix=vocals: -o $@ $<
+	$(ECANTORIX) -C $*.conf -c cache -O mid --output-mid-prefix=vocals: -o $@ $<
 
 clean:
 	$(RM) -r espeak-data cache

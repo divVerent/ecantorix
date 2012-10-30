@@ -66,11 +66,11 @@ our $ESPEAK_TEMPDIR = undef; # use $ESPEAK_CACHE/tmp by default
 our $ESPEAK_CACHE_PREFIX = "";
 
 # output
-our $OUTPUT_FORMAT = 'lmms';
+our $OUTPUT_FORMAT = 'wav';
 our $OUTPUT_FILE = '-';
 
-# if $OUTPUT_FORMAT is 'midi':
-our $OUTPUT_MIDI_PREFIX = 'vocals:';
+# if $OUTPUT_FORMAT is 'mid':
+our $OUTPUT_MID_PREFIX = 'vocals:';
 
 # tools (usually need no changes here)
 our $ESPEAK = 'espeak -v "$VOICE" ${VOICE_PATH:+--path="$VOICE_PATH"} -z -p "$PITCH" -s "$SPEED" -w "$OUT" -m "<prosody range=\"0\"> $SYLLABLE </prosody>"';
@@ -115,7 +115,7 @@ GetOptions(
 	'cache|c=s' => \$ESPEAK_CACHE,
 	'output-format|O=s' => \$OUTPUT_FORMAT,
 	'output|o=s' => \$OUTPUT_FILE,
-	'output-midi-prefix=s' => \$OUTPUT_MIDI_PREFIX
+	'output-mid-prefix=s' => \$OUTPUT_MID_PREFIX
 );
 
 my ($filename) = @ARGV;
@@ -223,7 +223,7 @@ EOF
 			my $track = $self->{opus}->tracks_r()->[-1];
 			$outname =~ s/^.*\///;
 			$track->new_event(
-				'text_event', $tick, "$OUTPUT_MIDI_PREFIX$outname");
+				'text_event', $tick, "$OUTPUT_MID_PREFIX$outname");
 		},
 		footer => sub {
 			my ($self) = @_;
