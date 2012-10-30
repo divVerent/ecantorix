@@ -137,7 +137,7 @@ sub tick2lmms($)
 	return int(48 / $opus->ticks() * $_[0] + 0.5);
 }
 my %out = (
-	lmms => {
+	mmp => {
 		header => sub
 		{
 			my ($self, $totalticks, $totaltime, $tempi) = @_;
@@ -205,7 +205,7 @@ EOF
 EOF
 		}
 	},
-	midi => {
+	mid => {
 		header => sub {
 			my ($self, $totalticks, $totaltime, $tempi) = @_;
 			$self->{opus} = MIDI::Opus->new();

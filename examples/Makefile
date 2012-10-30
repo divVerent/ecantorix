@@ -1,3 +1,5 @@
+ECANTORIX = ../ecantorix.pl
+
 ALL = \
       entchen.wav \
       nacht-v.wav \
@@ -20,15 +22,15 @@ espeak-data:
 
 %.mmp: %.mid %.conf espeak-data
 	mkdir -p cache
-	perl ../ecantorix.pl -C $*.conf -c cache -O mmp -o $@ $<
+	$(ECANTORIX) -C $*.conf -c cache -O mmp -o $@ $<
 
 %.wav: %.mid %.conf espeak-data
 	mkdir -p cache
-	perl ../ecantorix.pl -C $*.conf -c cache -O wav -o $@ $<
+	$(ECANTORIX) -C $*.conf -c cache -O wav -o $@ $<
 
 %-xon.mid: %.mid %.conf espeak-data
 	mkdir -p cache
-	perl ../ecantorix.pl -C $*.conf -c cache -O mid --output-midi-prefix=vocals: -o $@ $<
+	$(ECANTORIX) -C $*.conf -c cache -O mid --output-midi-prefix=vocals: -o $@ $<
 
 clean:
 	$(RM) -r espeak-data cache
