@@ -1,6 +1,5 @@
 *.wav
 *.mid
 *.mmp
-*.plot
-*.pitch
 examples/espeak-data/
+examples/cache/

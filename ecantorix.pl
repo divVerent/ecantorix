@@ -25,6 +25,7 @@ use MIDI;
 use URI::Escape;
 use Math::FFT;
 use Cwd;
+use Getopt::Long;
 use eCantorix::Util;
 
 # from wavegen.cpp
@@ -60,7 +61,7 @@ our $SOX_PREEFFECTS;
 our $SOX_AFTEREFFECTS;
 
 # paths
-our $ESPEAK_CACHE = getcwd();
+our $ESPEAK_CACHE = ".";
 our $ESPEAK_CACHE_PREFIX = "";
 our $ESPEAK_TEMPFILE = "out.wav";
 
@@ -102,18 +103,30 @@ our $ANALYZE_RANGE2 = 16;
 our $ANALYZE_ENV = 3;
 # end of customizable variables
 
-my ($filename, $controlfile) = @ARGV;
+# some options make sense overriding from the command line
+Getopt::Long::Configure("gnu_getopt", "auto_help", "auto_version");
+GetOptions(
+	'control-file|C=s' => sub { do $_[1]; },
+	'voice|v=s' => \$ESPEAK_VOICE,
+	'transpose|t=s' => sub { $ESPEAK_TRANSPOSE += $_[1]; },
+	'rate|r=s' => \$SOX_RATE,
+	'pre-effects|P=s' => \$SOX_PREEFFECTS,
+	'after-effects|A=s' => \$SOX_AFTEREFFECTS,
+	'cache|c=s' => \$ESPEAK_CACHE,
+	'output-format|O=s' => \$OUTPUT_FORMAT,
+	'output|o=s' => \$OUTPUT_FILE,
+	'output-midi-prefix=s' => \$OUTPUT_MIDI_PREFIX
+);
 
-if(length $controlfile)
-{
-	do "$controlfile";
-}
+my ($filename) = @ARGV;
 
 if(!defined $ESPEAK_PITCH_FACTOR and $ESPEAK_USE_PITCH_ADJUST_TAB)
 {
 	# works only for voices with zero range
 	$ESPEAK_PITCH_FACTOR = sub { return $pitch_adjust_tab[$_[0]]; };
 }
+
+$ESPEAK_CACHE = Cwd::abs_path($ESPEAK_CACHE);
 
 my $opus = MIDI::Opus->new({from_file => $filename});
 
