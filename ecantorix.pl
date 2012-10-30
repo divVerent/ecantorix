@@ -66,6 +66,7 @@ our $ESPEAK_TEMPFILE = "out.wav";
 
 # output
 our $OUTPUT_FORMAT = 'lmms';
+our $OUTPUT_FILE = '-';
 
 # if $OUTPUT_FORMAT is 'midi':
 our $OUTPUT_MIDI_PREFIX = 'vocals:';
@@ -77,8 +78,6 @@ our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT = 'sox -t raw -r "$RATE" -e signed
 our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT_USES_PITCH = 0;
 our $SOX_TEMPO_MIN = 0.1;
 our $SOX_TEMPO_MAX = 100;
-#our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT = 'sox -t raw -r "$RATE" -e signed -b 16 -c 1 - -t wav - | rubberband -T"$TEMPO" -f"$PITCH" - - | sox -t wav - "$OUT" $PITCHBEND $AFTEREFFECTS';
-#our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT_USES_PITCH = 1;
 
 # espeak tool options (normally don't touch this)
 our $ESPEAK_ATTEMPTS = 8;
@@ -126,9 +125,11 @@ my %out = (
 	lmms => {
 		header => sub
 		{
-			my ($self, $totallen, $tempi) = @_;
+			my ($self, $totalticks, $totaltime, $tempi) = @_;
+			open $self->{fh}, ">", $OUTPUT_FILE
+				or die "open $OUTPUT_FILE: $!";
 
-			print <<EOF;
+			print { $self->{fh} } <<EOF;
 <?xml version="1.0"?>
 <!DOCTYPE multimedia-project>
 <multimedia-project version="1.0" creator="Linux MultiMedia Studio (LMMS)" creatorversion="0.4.13" type="song">
@@ -141,7 +142,7 @@ EOF
 			if(@$tempi)
 			{
 				my $lmms_tempolen = tick2lmms($tempi->[-1][0]) + 1;
-				print <<EOF;
+				print { $self->{fh} } <<EOF;
 			<track muted="0" type="5" name="Automation track">
 				<automationtrack/>
 				<automationpattern name="Tempo" pos="0" len="$lmms_tempolen">
@@ -158,13 +159,13 @@ EOF
 					<time value="$lmms_tempo" pos="$lmms_tick"/>
 EOF
 				}
-				print <<EOF;
+				print { $self->{fh} } <<EOF;
 					<object id="3481048"/>
 				</automationpattern>
 			</track>
 EOF
 			}
-			print <<EOF;
+			print { $self->{fh} } <<EOF;
 			<track muted="0" type="2" name="Sample track">
 				<sampletrack vol="100">
 					<fxchain numofeffects="0" enabled="0"/>
@@ -175,13 +176,13 @@ EOF
 			my ($self, $tick, $dtick, $time, $dtime, $outname) = @_;
 			my $lmms_tick = tick2lmms($tick);
 			my $lmms_dtick = tick2lmms($tick + $dtick) - $lmms_tick;
-			print <<EOF;
+			print { $self->{fh} } <<EOF;
 				<sampletco muted="0" pos="$lmms_tick" len="$lmms_dtick" src="$outname" />
 EOF
 		},
 		footer => sub {
 			my ($self) = @_;
-			print <<EOF;
+			print { $self->{fh} } <<EOF;
 			</track>
 		</trackcontainer>
 	</song>
@@ -191,7 +192,7 @@ EOF
 	},
 	midi => {
 		header => sub {
-			my ($self, $totallen, $tempi) = @_;
+			my ($self, $totalticks, $totaltime, $tempi) = @_;
 			$self->{opus} = MIDI::Opus->new();
 			$self->{opus}->format(1);
 			$self->{opus}->ticks($opus->ticks());
@@ -213,8 +214,48 @@ EOF
 			my ($self) = @_;
 			my $track = $self->{opus}->tracks_r()->[-1];
 			$track->events(reltime $track->events());
-			$self->{opus}->write_to_handle(\*STDOUT);
+			$self->{opus}->write_to_file($OUTPUT_FILE);
 			delete $self->{opus};
+		}
+	},
+	wav => {
+		header => sub {
+			my ($self, $totalticks, $totaltime, $tempi) = @_;
+			$self->{buf} = [];
+		},
+		sample => sub {
+			my ($self, $tick, $dtick, $time, $dtime, $outname) = @_;
+			my $sample_start = int($time * $SOX_RATE);
+			print STDERR "$outname @ $sample_start...\n";
+			local $ENV{IN} = $outname;
+			local $ENV{RATE} = $SOX_RATE;
+			my $cmd = 'sox "$IN" -t raw -r "$RATE" -e signed -b 16 -c 1 -';
+			open my $fh, '-|', "$cmd"
+				or die "$cmd: $!";
+			my $data = do { undef local $/; <$fh>; };
+			close $fh
+				or die "$cmd: $! $?";
+			die "$cmd: No data"
+				unless length $data;
+			my @samples = unpack "s*", $data;
+			my $b = $self->{buf};
+			$b->[$_ + $sample_start] += $samples[$_]
+				for 0..@samples-1;
+		},
+		footer => sub {
+			my ($self) = @_;
+			print STDERR "filling...\n";
+			$_ //= 0
+				for @{$self->{buf}};
+			print STDERR "writing...\n";
+			local $ENV{OUT} = $OUTPUT_FILE;
+			local $ENV{RATE} = $SOX_RATE;
+			my $cmd = 'sox -t raw -r "$RATE" -e signed -b 16 -c 1 - -t wav "$OUT"';
+			open my $fh, '|-', "$cmd"
+				or die "$cmd: $!";
+			print $fh pack "s*", @{$self->{buf}};
+			close $fh
+				or die "$cmd: $! $?";
 		}
 	}
 );
@@ -634,7 +675,8 @@ for my $trackno(0..@$tracks-1)
 	$totallen = $events[-1][1]
 		if @events and $events[-1][1] > $totallen;;
 }
-$out->{header}->($out_self, $totallen, \@tempi);
+my $totaltime = tick2sec $totallen;
+$out->{header}->($out_self, $totallen, $totaltime, \@tempi);
 
 for my $trackno(0..@$tracks-1)
 {
