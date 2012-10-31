@@ -455,8 +455,6 @@ sub get_voice_sample($$$)
 	my $data = do { undef local $/; <$fh>; };
 	close $fh
 		or die "$SOX_PROCESS_IN_TO_S16LE: $! $?";
-	die "$SOX_PROCESS_IN_TO_S16LE: No data"
-		unless length $data;
 	return $data;
 }
 
@@ -492,6 +490,8 @@ sub get_pitch_cached($)
 		{
 			my $speed = int(0.5 + $ESPEAK_SPEED_MIN + ($ESPEAK_SPEED_MAX - $ESPEAK_SPEED_MIN + 1) * (($_ + 0.5) / $ESPEAK_PITCH_CACHE_SPEEDS));
 			my $data = get_voice_sample $pitch, $speed, $syllable;
+			die "$SOX_PROCESS_IN_TO_S16LE: No data"
+				unless length $data;
 			my @data = unpack "s*", $data;
 			my $thishz = $SOX_RATE / getpitch(\@data, $SOX_RATE / $ANALYZE_MAXFREQ, $SOX_RATE / $ANALYZE_MINFREQ, undef);
 
@@ -609,6 +609,11 @@ sub play_note($$$$$$$)
 		for(1..$ESPEAK_ATTEMPTS)
 		{
 			$data = get_voice_sample $pitch, $speed, $syllable;
+			if(!length $data)
+			{
+				warn "$SOX_PROCESS_IN_TO_S16LE: No data";
+				return;
+			}
 
 			$thisdt = (length($data) / 2) / $SOX_RATE;
 
