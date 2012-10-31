@@ -213,10 +213,9 @@ Getopt::Long::Configure("gnu_getopt", "auto_help", "auto_version");
 GetOptions(
 	'input|i=s' => \$infile,
 	'output|o=s' => \$outfile,
-	'phonemes|p=s' => \$options->{use_phonemes}
+	'phonemes|p' => \$options->{use_phonemes}
 );
 my $opus = MIDI::Opus->new({from_file => $infile})
 	or die "MIDI::Opus: could not read $infile";
 mapopus $opus, $options;
-$opus->write_to_file($outfile)
-	or die "MIDI::Opus: could not write $outfile";
+$opus->write_to_file($outfile);

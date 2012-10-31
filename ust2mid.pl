@@ -78,5 +78,4 @@ $ttrack->events(['set_tempo', 0, $miditempo]);
 my $ntrack = MIDI::Track->new();
 $ntrack->events(reltime mapusthash $ini, 1, $options);
 my $opus = MIDI::Opus->new({ format => 1, ticks => $UTAU_TICKS, tracks => [$ttrack, $ntrack] });
-$opus->write_to_file($outfile)
-	or die "MIDI::Opus: could not write $outfile";
+$opus->write_to_file($outfile);
