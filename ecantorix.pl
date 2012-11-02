@@ -26,6 +26,7 @@ use URI::Escape;
 use Math::FFT;
 use Cwd;
 use Getopt::Long;
+use Digest::SHA;
 use eCantorix::Util;
 
 # from wavegen.cpp
@@ -88,6 +89,9 @@ our $ESPEAK_PITCH_MAX = 99;
 our $ESPEAK_SPEED_MIN = 80;
 our $ESPEAK_SPEED_START = 175;
 our $ESPEAK_SPEED_MAX = 450;
+our $ESPEAK_VELOCITY_MIN = 0;
+our $ESPEAK_VELOCITY_NORMAL = 100;
+our $ESPEAK_VELOCITY_MAX = 200;
 
 # pitch caching (normally don't touch this)
 our $ESPEAK_PITCH_CACHE = 1;
@@ -428,12 +432,13 @@ sub getpitch($$$$)
 	return $ret;
 }
 
-sub get_voice_sample($$$)
+sub get_voice_sample($$$$)
 {
-	my ($pitch, $speed, $syllable) = @_;
+	my ($pitch, $velocity, $speed, $syllable) = @_;
 	{
 		local $ENV{OUT} = $ESPEAK_TEMPDIR . "/espeak_raw.wav";
 		local $ENV{PITCH} = $pitch;
+		local $ENV{VELOCITY} = $velocity;
 		local $ENV{SPEED} = $speed;
 		local $ENV{VOICE} = $ESPEAK_VOICE;
 		local $ENV{VOICE_PATH} = $ESPEAK_VOICE_PATH;
@@ -489,7 +494,7 @@ sub get_pitch_cached($)
 		for(0..($ESPEAK_PITCH_CACHE_SPEEDS - 1))
 		{
 			my $speed = int(0.5 + $ESPEAK_SPEED_MIN + ($ESPEAK_SPEED_MAX - $ESPEAK_SPEED_MIN + 1) * (($_ + 0.5) / $ESPEAK_PITCH_CACHE_SPEEDS));
-			my $data = get_voice_sample $pitch, $speed, $syllable;
+			my $data = get_voice_sample $pitch, $ESPEAK_VELOCITY_NORMAL, $speed, $syllable;
 			die "$SOX_PROCESS_IN_TO_S16LE: No data"
 				unless length $data;
 			my @data = unpack "s*", $data;
@@ -560,9 +565,9 @@ sub find_pitch_cached($)
 	}
 }
 
-sub play_note($$$$$$$)
+sub play_note($$$$$$$$)
 {
-	my ($tick, $dtick, $t, $dt, $note, $pitchbend, $syllable) = @_;
+	my ($tick, $dtick, $t, $dt, $note, $velocity, $pitchbend, $syllable) = @_;
 
 	# iterative find fitting -p (pitch, 0..99) and -s (speed, 80..450)
 	# parameters for espeak
@@ -590,11 +595,14 @@ sub play_note($$$$$$$)
 	my $hz = 440 * 2**(($note - 69 + $ESPEAK_TRANSPOSE) / 12);
 	my $pitch = $ESPEAK_PITCH_START;
 	my $speed = $ESPEAK_SPEED_START;
+	my $evelocity = int($ESPEAK_VELOCITY_MIN
+		+ ($velocity / 127.0)
+			* ($ESPEAK_VELOCITY_MAX - $ESPEAK_VELOCITY_MIN) + 0.5);
 
-	(my $pitchbend_fstr = $pitchbend_str) =~ s/ /_/g;
-	my $syllable_fstr = uri_escape $syllable;
-	my $outname = sprintf "%s/%s_%s_%.2f_%.2f_%s_%s.wav",
-		$ESPEAK_CACHE, $ESPEAK_CACHE_PREFIX, $ESPEAK_VOICE, $dt, $hz, $pitchbend_fstr, $syllable_fstr;
+	my $propstr = Digest::SHA::sha1_hex join "/",
+		$pitchbend_str, $syllable;
+	my $outname = sprintf "%s/%s_%s_%.2f_%.2f_%.2f_%s.wav",
+		$ESPEAK_CACHE, $ESPEAK_CACHE_PREFIX, $ESPEAK_VOICE, $dt, $hz, $velocity, $propstr;
 
 	if(!-f $outname)
 	{
@@ -608,7 +616,7 @@ sub play_note($$$$$$$)
 		}
 		for(1..$ESPEAK_ATTEMPTS)
 		{
-			$data = get_voice_sample $pitch, $speed, $syllable;
+			$data = get_voice_sample $pitch, $evelocity, $speed, $syllable;
 			if(!length $data)
 			{
 				warn "$SOX_PROCESS_IN_TO_S16LE: No data";
@@ -637,7 +645,7 @@ sub play_note($$$$$$$)
 				$ESPEAK_SPEED_MAX)]->[1];
 		}
 
-		print STDERR "pitch=$pitch speed=$speed";
+		print STDERR "pitch=$pitch velocity=$evelocity speed=$speed";
 
 		my $pitchfix = $hz / $thishz;
 		my $lengthfix = $dt / $thisdt;
@@ -749,7 +757,7 @@ for my $trackno(0..@$tracks-1)
 	} @events;
 	my $insert_note = sub
 	{
-		my ($starttick, $ticks, $channel, $pitch) = @_;
+		my ($starttick, $ticks, $channel, $pitch, $velocity) = @_;
 		my $found = undef;
 		for(@lyrics)
 		{
@@ -761,7 +769,7 @@ for my $trackno(0..@$tracks-1)
 		if($found)
 		{
 			push @{$found->[2]{$channel}},
-				[$starttick, $ticks, $pitch];
+				[$starttick, $ticks, $pitch, $velocity];
 			return 1;
 		}
 		else
@@ -780,6 +788,7 @@ for my $trackno(0..@$tracks-1)
 		my $time = $_->[1];
 		my $channel = $_->[2];
 		my $pitch = $_->[3];
+		my $velocity = $_->[4];
 		if($_->[0] eq 'note_on')
 		{
 			if(exists $notehash{$channel}{$pitch})
@@ -787,7 +796,7 @@ for my $trackno(0..@$tracks-1)
 				warn "note_already_on: $time/$channel/$pitch";
 				next;
 			}
-			$notehash{$channel}{$pitch} = $time;
+			$notehash{$channel}{$pitch} = [$time, $velocity];
 		}
 		else
 		{
@@ -796,12 +805,12 @@ for my $trackno(0..@$tracks-1)
 				warn "Spurious note_off: $time/$channel/$pitch";
 				next;
 			}
-			my $starttime = $notehash{$channel}{$pitch};
+			my ($starttime, $startvelocity) = @{$notehash{$channel}{$pitch}};
 			delete $notehash{$channel}{$pitch};
 
 			$insert_note->(
 				$starttime, $time - $starttime,
-				$channel, $pitch)
+				$channel, $pitch, $startvelocity)
 				or warn "No lyrics found for note: $starttime/$time/$channel/$pitch";
 		}
 	}
@@ -827,10 +836,11 @@ for my $trackno(0..@$tracks-1)
 			my @pitchbend = ();
 			my $lastnoteendtime = $realstarttime;
 			my $sumpitch = 0;
+			my $sumvelocity = 0;
 			my $sumtime = 0;
 			for(@$notes)
 			{
-				my ($notestarttick, $noteticks, $pitch) = @$_;
+				my ($notestarttick, $noteticks, $pitch, $velocity) = @$_;
 				my $noteendtick = $notestarttick + $noteticks;
 				my $notestarttime = tick2sec($notestarttick);
 				my $noteendtime = tick2sec($noteendtick);
@@ -838,6 +848,7 @@ for my $trackno(0..@$tracks-1)
 					if $notestarttime < $lastnoteendtime;
 				$sumtime += $noteendtime + $notestarttime;
 				$sumpitch += ($noteendtime + $notestarttime) * $pitch;
+				$sumvelocity += ($noteendtime + $notestarttime) * $velocity;
 				push @pitchbend, [
 					$lastnoteendtime - $realstarttime,
 					$notestarttime - $realstarttime,
@@ -845,6 +856,7 @@ for my $trackno(0..@$tracks-1)
 				$lastnoteendtime = $noteendtime;
 			}
 			my $avgpitch = $sumpitch / $sumtime;
+			my $avgvelocity = $sumvelocity / $sumtime;
 			$_->[2] -= $avgpitch
 				for @pitchbend;
 			shift @pitchbend
@@ -855,7 +867,7 @@ for my $trackno(0..@$tracks-1)
 				$realendtick - $realstarttick,
 				$realstarttime,
 				$realendtime - $realstarttime,
-				$avgpitch, \@pitchbend, $text;
+				$avgpitch, $avgvelocity, \@pitchbend, $text;
 		}
 	}
 }
