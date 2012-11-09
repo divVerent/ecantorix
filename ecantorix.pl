@@ -645,7 +645,7 @@ sub play_note($$$$$$$$)
 				$ESPEAK_SPEED_MAX)]->[1];
 		}
 
-		print STDERR "pitch=$pitch velocity=$evelocity speed=$speed";
+		print STDERR "pitch=$pitch velocity=$evelocity speed=$speed $syllable $pitchbend_str";
 
 		my $pitchfix = $hz / $thishz;
 		my $lengthfix = $dt / $thisdt;
