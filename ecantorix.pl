@@ -66,6 +66,9 @@ our $ESPEAK_CACHE = ".";
 our $ESPEAK_TEMPDIR = undef; # use $ESPEAK_CACHE/tmp by default
 our $ESPEAK_CACHE_PREFIX = "";
 
+# input syllable editing (perl expression or sub operating on $_)
+our $EDIT_SYLLABLES = sub { };
+
 # output
 our $OUTPUT_FORMAT = 'wav';
 our $OUTPUT_FILE = '-';
@@ -119,10 +122,14 @@ GetOptions(
 	'cache|c=s' => \$ESPEAK_CACHE,
 	'output-format|O=s' => \$OUTPUT_FORMAT,
 	'output|o=s' => \$OUTPUT_FILE,
-	'output-mid-prefix=s' => \$OUTPUT_MID_PREFIX
+	'output-mid-prefix=s' => \$OUTPUT_MID_PREFIX,
+	'edit-syllables=s' => \$EDIT_SYLLABLES
 );
 
 my ($filename) = @ARGV;
+
+$EDIT_SYLLABLES = eval "sub { $EDIT_SYLLABLES; }"
+	unless ref $EDIT_SYLLABLES;
 
 if(!defined $ESPEAK_PITCH_FACTOR and $ESPEAK_USE_PITCH_ADJUST_TAB)
 {
@@ -133,6 +140,22 @@ if(!defined $ESPEAK_PITCH_FACTOR and $ESPEAK_USE_PITCH_ADJUST_TAB)
 $ESPEAK_CACHE = Cwd::abs_path($ESPEAK_CACHE);
 $ESPEAK_TEMPDIR //= "$ESPEAK_CACHE/tmp";
 mkdir "$ESPEAK_TEMPDIR";
+
+my $statusline_active = 0;
+sub statusline(@)
+{
+	if($statusline_active)
+	{
+		print STDERR "\e[A\e[K";
+	}
+	print STDERR @_, "\n";
+	$statusline_active = 1;
+}
+sub statusout(@)
+{
+	print STDERR @_;
+	$statusline_active = 0;
+}
 
 my $opus = MIDI::Opus->new({from_file => $filename});
 
@@ -245,7 +268,6 @@ EOF
 		sample => sub {
 			my ($self, $tick, $dtick, $time, $dtime, $outname) = @_;
 			my $sample_start = int($time * $SOX_RATE);
-			print STDERR "$outname @ $sample_start...\n";
 			my $cmd = 'sox "$IN" -t raw -r "$RATE" -e signed -b 16 -c 1 -';
 			my $fh = do
 			{
@@ -267,7 +289,6 @@ EOF
 		},
 		footer => sub {
 			my ($self) = @_;
-			print STDERR "filling...\n";
 			my $clip = 0;
 			for(@{$self->{buf}})
 			{
@@ -283,9 +304,9 @@ EOF
 					$_ = -32768;
 				}
 			}
-			print STDERR "$clip clipped samples\n"
+			statusout "$clip clipped samples\n"
 				if $clip > 0;
-			print STDERR "writing...\n";
+			statusout "writing...\n";
 			my $cmd = 'sox -t raw -r "$RATE" -e signed -b 16 -c 1 - -t wav "$OUT"';
 			my $fh = do
 			{
@@ -335,8 +356,6 @@ sub getfirstmaximum($$$)
 	# now $best points APPROXIMATELY to the frequency... but is not correct
 	# do a second search for a maximum around $best
 
-#	print STDERR "Guess: $best\n";
-
 	$mi = int($best * 0.67)
 		if $mi < int($best * 0.67);
 	$ma = int($best * 1.50)
@@ -351,8 +370,6 @@ sub getfirstmaximum($$$)
 			$bestscore = $s;
 		}
 	}
-
-#	print STDERR "Refined: $best\n";
 
 	return $best;
 }
@@ -414,8 +431,6 @@ sub getpitch($$$$)
 
 	my $ret = $sf / $s;
 
-#	print STDERR "Finished: $ret\n";
-
 	if(defined $debugfile)
 	{
 		open my $fh, ">", $debugfile;
@@ -426,7 +441,6 @@ sub getpitch($$$$)
 			print $fh "$_ $correl->[$_] $diff $valid\n";
 		}
 		close $fh;
-		print STDERR "$debugfile written\n";
 	}
 
 	return $ret;
@@ -488,7 +502,7 @@ sub get_pitch_cached($)
 		return $ret;
 	}
 	my @hz = ();
-	print STDERR "Caching pitch $pitch... ";
+	statusout "Caching pitch $pitch... ";
 	for my $syllable(qw/do re mi fa so la ti/)
 	{
 		for(0..($ESPEAK_PITCH_CACHE_SPEEDS - 1))
@@ -506,7 +520,7 @@ sub get_pitch_cached($)
 	my $median = [sort { $a <=> $b } @hz]->[(@hz - 1) / 2];
 	my $above = scalar grep { $_ >= $median * (2 ** (0.5 / 12)) } @hz;
 	my $below = scalar grep { $_ <= $median / (2 ** (0.5 / 12)) } @hz;
-	print STDERR "$median ($above above, $below below)\n";
+	statusout "$median ($above above, $below below)\n";
 	if(open my $fh, ">", $cache)
 	{
 		print $fh "$median\n";
@@ -565,6 +579,7 @@ sub find_pitch_cached($)
 	}
 }
 
+my @last_syllables = ();
 sub play_note($$$$$$$$)
 {
 	my ($tick, $dtick, $t, $dt, $note, $velocity, $pitchbend, $syllable) = @_;
@@ -604,9 +619,14 @@ sub play_note($$$$$$$$)
 	my $outname = sprintf "%s/%s_%s_%.2f_%.2f_%.2f_%s.wav",
 		$ESPEAK_CACHE, $ESPEAK_CACHE_PREFIX, $ESPEAK_VOICE, $dt, $hz, $velocity, $propstr;
 
+	push @last_syllables, $syllable;
+	shift @last_syllables
+		if @last_syllables > 10;
+	statusline "@last_syllables";
+
 	if(!-f $outname)
 	{
-		print STDERR "Rendering $outname...";
+		statusout "Rendering $outname...";
 		my $thisdt;
 		my $thishz;
 		my $data;
@@ -645,12 +665,10 @@ sub play_note($$$$$$$$)
 				$ESPEAK_SPEED_MAX)]->[1];
 		}
 
-		print STDERR "pitch=$pitch velocity=$evelocity speed=$speed $syllable $pitchbend_str";
+		statusout "pitch=$pitch velocity=$evelocity speed=$speed $pitchbend_str";
 
 		my $pitchfix = $hz / $thishz;
 		my $lengthfix = $dt / $thisdt;
-		#print STDERR "Pitch correction: $thishz -> $hz\n";
-		#print STDERR "Length correction: $thisdt -> $dt\n";
 		if(!$ESPEAK_PITCH_CACHE)
 		{
 			if($pitchfix <= 0 || abs(log($pitchfix)) > 0.1)
@@ -693,7 +711,7 @@ sub play_note($$$$$$$$)
 		close $fh
 			or die "$SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT: $! $?";
 
-		print STDERR "\n";
+		statusout "\n";
 	}
 
 	$out->{sample}->($out_self, $tick, $dtick, $t, $dt, $outname);
@@ -744,7 +762,7 @@ $out->{header}->($out_self, $totallen, $totaltime, \@tempi);
 
 for my $trackno(0..@$tracks-1)
 {
-	print STDERR "Processing track $trackno...\n";
+	statusout "Processing track $trackno...\n";
 	my $track = $tracks->[$trackno];
 
 	my @events = abstime $track->events();
@@ -824,6 +842,12 @@ for my $trackno(0..@$tracks-1)
 		$text =~ s/ *$//g;
 		next
 			if $text eq "";
+		{
+			local $_ = $text;
+			$EDIT_SYLLABLES->();
+			$text = $_;
+		}
+
 		for my $channel(sort keys %$channels)
 		{
 			my $notes = $channels->{$channel};
