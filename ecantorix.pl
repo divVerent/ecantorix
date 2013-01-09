@@ -67,7 +67,7 @@ our $ESPEAK_TEMPDIR = undef; # use $ESPEAK_CACHE/tmp by default
 our $ESPEAK_CACHE_PREFIX = "";
 
 # input syllable editing (perl expression or sub operating on $_)
-our $EDIT_SYLLABLES = sub { };
+our $EDIT_SYLLABLES;
 
 # output
 our $OUTPUT_FORMAT = 'wav';
@@ -129,7 +129,7 @@ GetOptions(
 my ($filename) = @ARGV;
 
 $EDIT_SYLLABLES = eval "sub { $EDIT_SYLLABLES; }"
-	unless ref $EDIT_SYLLABLES;
+	if defined $EDIT_SYLLABLES and not ref $EDIT_SYLLABLES;
 
 if(!defined $ESPEAK_PITCH_FACTOR and $ESPEAK_USE_PITCH_ADJUST_TAB)
 {
@@ -842,6 +842,8 @@ for my $trackno(0..@$tracks-1)
 		$text =~ s/ *$//g;
 		next
 			if $text eq "";
+
+		if($EDIT_SYLLABLES)
 		{
 			local $_ = $text;
 			$EDIT_SYLLABLES->();

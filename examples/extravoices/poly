@@ -1,0 +1,27 @@
+// Base voice by:
+// From: "Florian R. A. Angermeier" <Florian.Angermeier@gmx.at>
+// Message-ID: <20130107204628.276600@gmx.net>
+// To: espeak-general@lists.sourceforge.net
+// Processed using:
+// perl ~/ecantorix/voiceshape/voiceshape.pl -P 440 -t 2 -f 1.25 -w 0.8 -c 0.8 -U 0 -R 0 -S 0
+breath 0 0 0 0 0 0 0 0
+consonants 80 80
+echo 0 0
+flutter 0
+formant 0 131 80 150 0
+formant 1 137 80 160 0
+formant 2 137 70 150 0
+formant 3 137 70 150 0
+formant 4 143 80 200 0
+formant 5 143 80 100 0
+formant 6 137 70 150 0
+formant 7 137 70 100 0
+formant 8 137 70 150 0
+gender female 0
+language variant
+name female
+pitch 440 440
+roughness 0
+stressAdd 0 0 0 0 0 0 0 0
+tone 1200 128 2400 128 4000 192
+voicing 100
