@@ -69,6 +69,9 @@ our $ESPEAK_CACHE_PREFIX = "";
 # input syllable editing (perl expression or sub operating on $_)
 our $EDIT_SYLLABLES;
 
+# hint: $EDIT_SYLLABLES = sub { s/^%.*//; s/^\[\[(.*)\]\]$/$1/s or s/(.*)/[[$1]]/s; };
+# changes the parsing to [[words]] and phonetics, instead of the default (words and [[phonetics]])
+
 # output
 our $OUTPUT_FORMAT = 'wav';
 our $OUTPUT_FILE = '-';
