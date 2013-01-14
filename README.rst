@@ -74,3 +74,32 @@ included file COPYING) or any later version, at your choice.
 The author believes that the license of the program does not affect licensing
 or copyright of the output files; therefore you can use the output files for
 any purpose of your liking.
+
+The example files are licensed as follows:
+
+examples/entchen.abc
+        This is a wellknown German children's tune.
+        Public domain (unknown author, but sure dead for more than 70 years).
+
+examples/nacht-v.abc
+        This is from the Zauberflöte (Magic Flute).
+        Public domain (Wolfgang Amadeus Mozart).
+
+examples/sadi-moma.abc
+        This is the Free Software Song.
+        No copyright is claimed on this song or its ABC typesetting by me,
+        Richard Stallman, or the FSF.
+
+examples/sadi-moma-pitchbend.abc 
+        This is the Free Software Song.
+        No copyright is claimed on this song or its ABC typesetting by me,
+        Richard Stallman, or the FSF.
+
+examples/sadi-moma-qon.abc
+        This is the Free Software Song.
+        No copyright is claimed on this song or its ABC typesetting by me,
+        Richard Stallman, or the FSF.
+
+examples/sarastro.abc
+        This is from the Zauberflöte (Magic Flute).
+        Public domain (Wolfgang Amadeus Mozart).
