@@ -845,6 +845,8 @@ for my $trackno(0..@$tracks-1)
 		$text =~ s/ *$//g;
 		next
 			if $text eq "";
+		next
+			if $text =~ /^%/;
 
 		if($EDIT_SYLLABLES)
 		{
