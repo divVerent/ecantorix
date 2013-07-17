@@ -1,5 +1,6 @@
 *.wav
 *.mid
 *.mmp
+*.ass
 examples/espeak-data/
 examples/cache/

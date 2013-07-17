@@ -20,18 +20,18 @@ espeak-data:
 %.mid: %.abc
 	abc2midi $< 0 -o $@
 
-%.mmp: %.mid %.conf espeak-data
+%.mmp %.ass: %.mid %.conf espeak-data
 	mkdir -p cache
-	$(ECANTORIX) -C $*.conf -c cache -O mmp -o $@ $<
+	$(ECANTORIX) -C $*.conf -c cache -O mmp -o $*.mmp $< | tee $*.ass
 
-%.wav: %.mid %.conf espeak-data
+%.wav %.ass: %.mid %.conf espeak-data
 	mkdir -p cache
-	$(ECANTORIX) -C $*.conf -c cache -O wav -o $@ $<
+	$(ECANTORIX) -C $*.conf -c cache -O wav -o $*.wav $< | tee $*.ass
 
-%-xon.mid: %.mid %.conf espeak-data
+%-xon.mid %.ass: %.mid %.conf espeak-data
 	mkdir -p cache
-	$(ECANTORIX) -C $*.conf -c cache -O mid --output-mid-prefix=vocals: -o $@ $<
+	$(ECANTORIX) -C $*.conf -c cache -O mid --output-mid-prefix=vocals: -o $*-xon.mid $< | tee $*.ass
 
 clean:
 	$(RM) -r espeak-data cache
-	$(RM) *.wav *.mid *.mmp *.pitch
+	$(RM) *.wav *.mid *.mmp *.ass
