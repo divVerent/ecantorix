@@ -1,0 +1,3 @@
+- support lyrics in separate track (basically: if a lyrics-only track exists,
+  AND no other tracks contain lyrics, append all lyrics events to all other
+  tracks)
