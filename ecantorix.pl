@@ -59,7 +59,9 @@ our $ESPEAK_USE_PITCH_ADJUST_TAB = 0;
 # filtering
 our $SOX_RATE = 22050;
 our $SOX_PREEFFECTS;
+our $SOX_PREEFFECTS_CHANNELS = 1;
 our $SOX_AFTEREFFECTS;
+our $SOX_AFTEREFFECTS_CHANNELS = 1;
 
 # paths
 our $ESPEAK_CACHE = ".";
@@ -81,8 +83,8 @@ our $OUTPUT_MID_PREFIX = 'vocals:';
 
 # tools (usually need no changes here)
 our $ESPEAK = 'espeak -v "$VOICE" ${VOICE_PATH:+--path="$VOICE_PATH"} -z -p "$PITCH" -s "$SPEED" -a "$VELOCITY" -w "$OUT" -m "<prosody range=\"0\"> $SYLLABLE </prosody>"';
-our $SOX_PROCESS_IN_TO_S16LE = 'sox "$IN" -t raw -r "$RATE" -e signed -b 16 -c 1 - remix - $PREEFFECTS silence 1 1s 0 reverse silence 1 1s 0 reverse';
-our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT = 'sox -t raw -r "$RATE" -e signed -b 16 -c 1 - "$OUT" tempo -s "$TEMPO" $PITCHBEND $AFTEREFFECTS';
+our $SOX_PROCESS_IN_TO_S16LE = 'sox "$IN" -t raw -r "$RATE" -e signed -b 16 -c $PREEFFECTS_CHANNELS - remix - $PREEFFECTS silence 1 1s 0 reverse silence 1 1s 0 reverse';
+our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT = 'sox -t raw -r "$RATE" -e signed -b 16 -c $PREEFFECTS_CHANNELS - "$OUT" tempo -s "$TEMPO" $PITCHBEND $AFTEREFFECTS';
 our $SOX_PROCESS_TEMPO_PITCHBEND_S16LE_TO_OUT_USES_PITCH = 0;
 our $SOX_TEMPO_MIN = 0.1;
 our $SOX_TEMPO_MAX = 100;
@@ -276,12 +278,13 @@ EOF
 		},
 		sample => sub {
 			my ($self, $tick, $dtick, $time, $dtime, $outname) = @_;
-			my $sample_start = int($time * $SOX_RATE);
-			my $cmd = 'sox "$IN" -t raw -r "$RATE" -e signed -b 16 -c 1 -';
+			my $sample_start = int($time * $SOX_RATE) * $SOX_AFTEREFFECTS_CHANNELS;
+			my $cmd = 'sox "$IN" -t raw -r "$RATE" -e signed -b 16 -c $AFTEREFFECTS_CHANNELS -';
 			my $fh = do
 			{
 				local $ENV{IN} = $outname;
 				local $ENV{RATE} = $SOX_RATE;
+				local $ENV{AFTEREFFECTS_CHANNELS} = $SOX_AFTEREFFECTS_CHANNELS;
 				open my $fh, '-|', "$cmd"
 					or die "$cmd: $!";
 				$fh;
@@ -316,11 +319,12 @@ EOF
 			statusout "$clip clipped samples\n"
 				if $clip > 0;
 			statusout "writing...\n";
-			my $cmd = 'sox -t raw -r "$RATE" -e signed -b 16 -c 1 - -t wav "$OUT"';
+			my $cmd = 'sox -t raw -r "$RATE" -e signed -b 16 -c $AFTEREFFECTS_CHANNELS - -t wav "$OUT"';
 			my $fh = do
 			{
 				local $ENV{OUT} = $OUTPUT_FILE;
 				local $ENV{RATE} = $SOX_RATE;
+				local $ENV{AFTEREFFECTS_CHANNELS} = $SOX_AFTEREFFECTS_CHANNELS;
 				open my $fh, '|-', "$cmd"
 					or die "$cmd: $!";
 				$fh;
@@ -473,6 +477,7 @@ sub get_voice_sample($$$$)
 	my $fh = do
 	{
 		local $ENV{PREEFFECTS} = $SOX_PREEFFECTS;
+		local $ENV{PREEFFECTS_CHANNELS} = $SOX_PREEFFECTS_CHANNELS;
 		local $ENV{RATE} = $SOX_RATE;
 		local $ENV{IN} = $ESPEAK_TEMPDIR . "/espeak_raw.wav";
 		local $ENV{TEMP} = $ESPEAK_TEMPDIR;
@@ -629,8 +634,8 @@ sub play_note($$$$$$$$)
 
 	my $propstr = Digest::SHA::sha1_hex join "/",
 		$pitchbend_str, $syllable;
-	my $outname = sprintf "%s/%s_%s_%.2f_%.2f_%.2f_%s.wav",
-		$ESPEAK_CACHE, $ESPEAK_CACHE_PREFIX, $ESPEAK_VOICE, $dt, $hz, $velocity, $propstr;
+	my $outname = sprintf "%s/%s_%s_%d_%.2f_%.2f_%.2f_%s.wav",
+		$ESPEAK_CACHE, $ESPEAK_CACHE_PREFIX, $ESPEAK_VOICE, $SOX_RATE, $dt, $hz, $velocity, $propstr;
 
 	push @last_syllables, $syllable;
 	shift @last_syllables
@@ -709,7 +714,9 @@ sub play_note($$$$$$$$)
 
 		my $fh = do
 		{
+			local $ENV{PREEFFECTS_CHANNELS} = $SOX_PREEFFECTS_CHANNELS;
 			local $ENV{AFTEREFFECTS} = $SOX_AFTEREFFECTS;
+			local $ENV{AFTEREFFECTS_CHANNELS} = $SOX_AFTEREFFECTS_CHANNELS;
 			local $ENV{RATE} = $rate;
 			local $ENV{TEMPO} = $tempofix;
 			local $ENV{PITCH} = $pitchfix;
