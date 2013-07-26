@@ -907,7 +907,7 @@ $out->{header}->($out_self, $totallen, $totaltime, \@tempi)
 my %text_event_types = map { $_ => 1 } qw(lyric text_event);
 my %note_event_types = map { $_ => 1 } qw(note_on note_off);
 
-$lyricstrack = undef;
+my $lyricstrack = undef;
 for my $trackno(0..@$tracks-1)
 {
 	statusout "Analyzing track $trackno...";
