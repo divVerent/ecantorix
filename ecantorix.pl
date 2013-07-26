@@ -904,6 +904,43 @@ my $totaltime = tick2sec $totallen;
 $out->{header}->($out_self, $totallen, $totaltime, \@tempi)
 	if defined $out;
 
+my %text_event_types = map { $_ => 1 } qw(lyric text_event);
+my %note_event_types = map { $_ => 1 } qw(note_on note_off);
+
+$lyricstrack = undef;
+for my $trackno(0..@$tracks-1)
+{
+	statusout "Analyzing track $trackno...";
+	my $track = $tracks->[$trackno];
+	my @events = abstime $track->events();
+	my $has_lyrics = grep { $text_event_types{$_->[0]} } @events;
+	my $has_notes = grep { $note_event_types{$_->[0]} } @events;
+	if ($has_lyrics)
+	{
+		if ($has_notes)
+		{
+			# mixed note/lyrics track. no need to process.
+			$lyricstrack = -1;
+		}
+		else
+		{
+			# lyrics-only track. Append this to all tracks if it is
+			# the only one with lyrics.
+			if (defined $lyricstrack)
+			{
+				# more than one with lyrics - don't do this
+				$lyricstrack = -1;
+			}
+			else
+			{
+				$lyricstrack = $trackno;
+			}
+		}
+	}
+}
+$lyricstrack = undef
+	if defined $lyricstrack and $lyricstrack == -1;
+
 for my $trackno(0..@$tracks-1)
 {
 	statusout "Processing track $trackno...\n";
@@ -911,11 +948,19 @@ for my $trackno(0..@$tracks-1)
 
 	my @events = abstime $track->events();
 
+	if (defined $lyricstrack)
+	{
+		next
+			if $trackno == $lyricstrack;
+		@events = sorttime(
+			@events, abstime $tracks->[$lyricstrack]->events());
+	}
+
 	# lyrics = array of [starttick, text, channels]
 	# channels = hash of channel => notes
 	# notes = array of [starttick, ticks, pitch]
 	my @lyrics = map {
-		$_->[0] =~ /^lyric$|^text_event$/ ? [$_->[1], $_->[2], {}] : ()
+		$text_event_types{$_->[0]} ? [$_->[1], $_->[2], {}] : ()
 	} @events;
 	my $insert_note = sub
 	{
