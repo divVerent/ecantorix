@@ -787,6 +787,9 @@ sub dump_lyric($$$$)
 {
 	my ($start, $end, $text, $endofline) = @_;
 
+	return
+		if $OUTPUT_FILE eq '-';
+
 	my $endtime = undef;
 	if (defined $ass_endtime)
 	{

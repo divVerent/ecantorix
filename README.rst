@@ -55,11 +55,15 @@ MIDI channels (they then will share the lyrics).
 
 Once you have such an input file, run::
 
-	perl ecantorix.pl foo.mid > foo.mmp
+	perl ecantorix.pl -O mmp -o foo.mmp foo.mid
 
 The result is a LMMS project file that can be processed to an audio file using::
 
 	lmms -o foo.wav --render foo.mmp
+
+You can also render to a wave file directly:
+
+	perl ecantorix.pl -O wav -o foo.wav foo.mid
 
 Also, there is now preliminary support for Vocaloid (VSQ) files. The phonemes
 are not used yet, though, as doing this would require an external mapping table
