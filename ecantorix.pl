@@ -179,7 +179,7 @@ my %out = (
 		header => sub
 		{
 			my ($self, $totalticks, $totaltime, $tempi) = @_;
-			open $self->{fh}, ">", $OUTPUT_FILE
+			open $self->{fh}, ($OUTPUT_FILE eq "-" ? ">-" : (">", $OUTPUT_FILE))
 				or die "open $OUTPUT_FILE: $!";
 
 			print { $self->{fh} } <<EOF;
