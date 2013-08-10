@@ -61,7 +61,7 @@ The result is a LMMS project file that can be processed to an audio file using::
 
 	lmms -o foo.wav --render foo.mmp
 
-You can also render to a wave file directly:
+You can also render to a wave file directly::
 
 	perl ecantorix.pl -O wav -o foo.wav foo.mid
 
