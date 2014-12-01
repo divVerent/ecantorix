@@ -1,4 +1,5 @@
 ECANTORIX = ../ecantorix.pl
+ESPEAK_DATA = /usr/lib/x86_64-linux-gnu/espeak-data
 
 ALL = \
       entchen.wav \
@@ -13,7 +14,7 @@ all: $(ALL)
 espeak-data:
 	$(RM) -r espeak-data
 	mkdir espeak-data
-	cp -R /usr/share/espeak-data/* espeak-data/
+	cp -R $(ESPEAK_DATA)/* espeak-data/
 	cp -R ~/espeak-data/* espeak-data/ || true
 	cp extravoices/* espeak-data/voices/\!v
 
