@@ -167,6 +167,11 @@ sub statusout(@)
 	print STDERR @_;
 	$statusline_active = 0;
 }
+sub statuswarn(@)
+{
+	warn @_, "\n";
+	$statusline_active = 0;
+}
 
 my $opus = MIDI::Opus->new({from_file => $filename});
 
@@ -657,7 +662,7 @@ sub play_note($$$$$$$$)
 			$data = get_voice_sample $pitch, $evelocity, $speed, $syllable;
 			if(!length $data)
 			{
-				warn "$SOX_PROCESS_IN_TO_S16LE: No data";
+				statuswarn "$SOX_PROCESS_IN_TO_S16LE: No data";
 				return;
 			}
 
@@ -691,7 +696,7 @@ sub play_note($$$$$$$$)
 		{
 			if($pitchfix <= 0 || abs(log($pitchfix)) > 0.1)
 			{
-				warn "Large pitch correction: $thishz -> $hz";
+				statuswarn "Large pitch correction: $thishz -> $hz";
 				getpitch([unpack("s*", $data)], $SOX_RATE / $ANALYZE_MAXFREQ, $SOX_RATE / $ANALYZE_MINFREQ, "$outname.plot");
 			}
 		}
@@ -987,7 +992,7 @@ for my $trackno(0..@$tracks-1)
 		{
 			if(exists $notehash{$channel}{$pitch})
 			{
-				warn "note_already_on: $time/$channel/$pitch";
+				statuswarn "note_already_on: $time/$channel/$pitch";
 				next;
 			}
 			$notehash{$channel}{$pitch} = [$time, $velocity];
@@ -996,7 +1001,7 @@ for my $trackno(0..@$tracks-1)
 		{
 			if(!exists $notehash{$channel}{$pitch})
 			{
-				warn "Spurious note_off: $time/$channel/$pitch";
+				statuswarn "Spurious note_off: $time/$channel/$pitch";
 				next;
 			}
 			my ($starttime, $startvelocity) = @{$notehash{$channel}{$pitch}};
@@ -1005,7 +1010,7 @@ for my $trackno(0..@$tracks-1)
 			$insert_note->(
 				$starttime, $time - $starttime,
 				$channel, $pitch, $startvelocity)
-				or warn "No lyrics found for note: $starttime/$time/$channel/$pitch";
+				or statuswarn "No lyrics found for note: $starttime/$time/$channel/$pitch";
 		}
 	}
 
@@ -1071,7 +1076,7 @@ for my $trackno(0..@$tracks-1)
 			shift @pitchbend
 				while @pitchbend
 					and abs($pitchbend[0][2]) < 0.001;
-			warn "Pitch bend: $realstarttime/$channel/$avgpitch/$text"
+			statuswarn "Pitch bend: $realstarttime/$channel/$avgpitch/$text"
 				if @pitchbend > 0;
 			play_note
 				$realstarttick,
