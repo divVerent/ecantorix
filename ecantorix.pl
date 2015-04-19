@@ -1035,6 +1035,8 @@ for my $trackno(0..@$tracks-1)
 		next
 			if $text !~ /\S/;
 
+		my $is_chord = $text =~ s/^(\s*)#/$1/;
+
 		for my $channel(sort keys %$channels)
 		{
 			my $notes = $channels->{$channel};
@@ -1047,43 +1049,59 @@ for my $trackno(0..@$tracks-1)
 			dump_lyric $realstarttime, $realendtime, $text, $has_newline;
 			next
 				if not defined $out;
-			my @pitchbend = ();
-			my $lastnoteendtime = $realstarttime;
-			my $sumpitch = 0;
-			my $sumvelocity = 0;
-			my $sumtime = 0;
-			for(@$notes)
-			{
-				my ($notestarttick, $noteticks, $pitch, $velocity) = @$_;
-				my $noteendtick = $notestarttick + $noteticks;
-				my $notestarttime = tick2sec($notestarttick);
-				my $noteendtime = tick2sec($noteendtick);
-				die "Overlapping notes: $notestarttime/$channel/$pitch/$text"
-					if $notestarttime < $lastnoteendtime;
-				$sumtime += $noteendtime + $notestarttime;
-				$sumpitch += ($noteendtime + $notestarttime) * $pitch;
-				$sumvelocity += ($noteendtime + $notestarttime) * $velocity;
-				push @pitchbend, [
-					$lastnoteendtime - $realstarttime,
-					$notestarttime - $realstarttime,
-					$pitch];
-				$lastnoteendtime = $noteendtime;
+			if ($is_chord) {
+				for(@$notes)
+				{
+					my ($notestarttick, $noteticks, $pitch, $velocity) = @$_;
+					my $noteendtick = $notestarttick + $noteticks;
+					my $notestarttime = tick2sec($notestarttick);
+					my $noteendtime = tick2sec($noteendtick);
+					play_note
+						$notestarttick,
+						$noteendtick - $notestarttick,
+						$notestarttime,
+						$noteendtime - $notestarttime,
+						$pitch, $velocity, [], $text;
+				}
+			} else {
+				my @pitchbend = ();
+				my $lastnoteendtime = $realstarttime;
+				my $sumpitch = 0;
+				my $sumvelocity = 0;
+				my $sumtime = 0;
+				for(@$notes)
+				{
+					my ($notestarttick, $noteticks, $pitch, $velocity) = @$_;
+					my $noteendtick = $notestarttick + $noteticks;
+					my $notestarttime = tick2sec($notestarttick);
+					my $noteendtime = tick2sec($noteendtick);
+					die "Overlapping notes: $notestarttime/$channel/$pitch/$text"
+						if $notestarttime < $lastnoteendtime;
+					$sumtime += $noteendtime + $notestarttime;
+					$sumpitch += ($noteendtime + $notestarttime) * $pitch;
+					$sumvelocity += ($noteendtime + $notestarttime) * $velocity;
+					push @pitchbend, [
+						$lastnoteendtime - $realstarttime,
+						$notestarttime - $realstarttime,
+						$pitch];
+					$lastnoteendtime = $noteendtime;
+				}
+				my $avgpitch = $sumpitch / $sumtime;
+				my $avgvelocity = $sumvelocity / $sumtime;
+				$_->[2] -= $avgpitch
+					for @pitchbend;
+				shift @pitchbend
+					while @pitchbend
+						and abs($pitchbend[0][2]) < 0.001;
+				statuswarn "Pitch bend: $realstarttime/$channel/$avgpitch/$text"
+					if @pitchbend > 0;
+				play_note
+					$realstarttick,
+					$realendtick - $realstarttick,
+					$realstarttime,
+					$realendtime - $realstarttime,
+					$avgpitch, $avgvelocity, \@pitchbend, $text;
 			}
-			my $avgpitch = $sumpitch / $sumtime;
-			my $avgvelocity = $sumvelocity / $sumtime;
-			$_->[2] -= $avgpitch
-				for @pitchbend;
-			shift @pitchbend
-				while @pitchbend
-					and abs($pitchbend[0][2]) < 0.001;
-			statuswarn "Pitch bend: $realstarttime/$channel/$avgpitch/$text"
-				if @pitchbend > 0;
-			play_note
-				$realstarttick,
-				$realendtick - $realstarttick,
-				$realstarttime,
-				$realendtime - $realstarttime,
-				$avgpitch, $avgvelocity, \@pitchbend, $text;
 		}
 	}
 
