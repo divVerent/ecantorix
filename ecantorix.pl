@@ -1053,7 +1053,7 @@ for my $trackno(0..@$tracks-1)
 				my $noteendtick = $notestarttick + $noteticks;
 				my $notestarttime = tick2sec($notestarttick);
 				my $noteendtime = tick2sec($noteendtick);
-				die "Overlapping notes: $notestarttime/$channel/$pitch"
+				die "Overlapping notes: $notestarttime/$channel/$pitch/$text"
 					if $notestarttime < $lastnoteendtime;
 				$sumtime += $noteendtime + $notestarttime;
 				$sumpitch += ($noteendtime + $notestarttime) * $pitch;
@@ -1071,6 +1071,8 @@ for my $trackno(0..@$tracks-1)
 			shift @pitchbend
 				while @pitchbend
 					and abs($pitchbend[0][2]) < 0.001;
+			warn "Pitch bend: $realstarttime/$channel/$avgpitch/$text"
+				if @pitchbend > 0;
 			play_note
 				$realstarttick,
 				$realendtick - $realstarttick,
