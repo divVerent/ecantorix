@@ -271,7 +271,7 @@ EOF
 		footer => sub {
 			my ($self) = @_;
 			my $track = $self->{opus}->tracks_r()->[-1];
-			$track->events(reltime $track->events());
+			$track->events(reltime sorttime $track->events());
 			$self->{opus}->write_to_file($OUTPUT_FILE);
 			delete $self->{opus};
 		}
