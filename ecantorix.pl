@@ -951,9 +951,31 @@ for my $trackno(0..@$tracks-1)
 	# lyrics = array of [starttick, text, channels]
 	# channels = hash of channel => notes
 	# notes = array of [starttick, ticks, pitch]
-	my @lyrics = map {
-		$text_event_types{$_->[0]} ? [$_->[1], $_->[2], {}] : ()
-	} @events;
+	my @lyrics;
+	for (@events) {
+		next unless $text_event_types{$_->[0]};
+		my $start = $_->[1];
+		my $text = $_->[2];
+
+		next
+			if $text =~ /^%/;
+		$text =~ s/^\///;
+		$text =~ s/^\\//;
+		my $has_newline = 0;
+		$has_newline = 1
+			if $text =~ s/\\n\s*$//;
+		if($EDIT_SYLLABLES)
+		{
+			local $_ = $text;
+			$EDIT_SYLLABLES->();
+			$text = $_;
+		}
+		next
+			if $text !~ /\S/;
+		my $is_chord = $text =~ s/^(\s*)#/$1/;
+
+		push @lyrics, [$start, $text, $has_newline, $is_chord, {}];
+	}
 	my $insert_note = sub
 	{
 		my ($starttick, $ticks, $channel, $pitch, $velocity) = @_;
@@ -967,7 +989,7 @@ for my $trackno(0..@$tracks-1)
 		}
 		if($found)
 		{
-			push @{$found->[2]{$channel}},
+			push @{$found->[4]{$channel}},
 				[$starttick, $ticks, $pitch, $velocity];
 			return 1;
 		}
@@ -1016,26 +1038,7 @@ for my $trackno(0..@$tracks-1)
 
 	for(@lyrics)
 	{
-		my ($starttick, $text, $channels) = @$_;
-		next
-			if $text =~ /^%/;
-		$text =~ s/^\///;
-		$text =~ s/^\\//;
-		my $has_newline = 0;
-		$has_newline = 1
-			if $text =~ s/\\n\s*$//;
-
-		if($EDIT_SYLLABLES)
-		{
-			local $_ = $text;
-			$EDIT_SYLLABLES->();
-			$text = $_;
-		}
-
-		next
-			if $text !~ /\S/;
-
-		my $is_chord = $text =~ s/^(\s*)#/$1/;
+		my ($starttick, $text, $has_newline, $is_chord, $channels) = @$_;
 
 		for my $channel(sort keys %$channels)
 		{
@@ -1069,6 +1072,8 @@ for my $trackno(0..@$tracks-1)
 				my $sumpitch = 0;
 				my $sumvelocity = 0;
 				my $sumtime = 0;
+				my $minpitch = 127;
+				my $maxpitch = 0;
 				for(@$notes)
 				{
 					my ($notestarttick, $noteticks, $pitch, $velocity) = @$_;
@@ -1080,6 +1085,10 @@ for my $trackno(0..@$tracks-1)
 					$sumtime += $noteendtime + $notestarttime;
 					$sumpitch += ($noteendtime + $notestarttime) * $pitch;
 					$sumvelocity += ($noteendtime + $notestarttime) * $velocity;
+					$minpitch = $pitch
+						if $pitch < $minpitch;
+					$maxpitch = $pitch
+						if $pitch > $maxpitch;
 					push @pitchbend, [
 						$lastnoteendtime - $realstarttime,
 						$notestarttime - $realstarttime,
@@ -1093,7 +1102,7 @@ for my $trackno(0..@$tracks-1)
 				shift @pitchbend
 					while @pitchbend
 						and abs($pitchbend[0][2]) < 0.001;
-				statuswarn "Pitch bend: $realstarttime/$channel/$avgpitch/$text"
+				statuswarn "Pitch bend: $realstarttime/$channel/$minpitch/$avgpitch/$maxpitch/$text"
 					if @pitchbend > 0;
 				play_note
 					$realstarttick,
