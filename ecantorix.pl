@@ -69,7 +69,7 @@ our $ESPEAK_TEMPDIR = undef; # use $ESPEAK_CACHE/tmp by default
 our $ESPEAK_CACHE_PREFIX = "";
 
 # input syllable editing (perl expression or sub operating on $_)
-our $EDIT_SYLLABLES;
+our $EDIT_SYLLABLES = sub { $_; };
 
 # hint: $EDIT_SYLLABLES = sub { s/^\s*\[\[\s*(.*)\s*\]\]\s*$/$1/s or s/^\s*(.*?)\s*$/[[$1]]/s; };
 # changes the parsing to [[words]] and phonetics, instead of the default (words and [[phonetics]])
@@ -118,6 +118,10 @@ our $ANALYZE_ENV = 3;
 our $ASS_PRETIME = 1.5;
 our $ASS_POSTTIME = 0.5;
 our $ASS_LENGTHFACTOR = 1.0;
+
+# Filter to process notes/chords into chords (a sub from @notes to @notes).
+our $EDIT_CHORDS = sub { @_; };
+
 # end of customizable variables
 
 # some options make sense overriding from the command line
@@ -134,13 +138,16 @@ GetOptions(
 	'output|o=s' => \$OUTPUT_FILE,
 	'output-mid-prefix=s' => \$OUTPUT_MID_PREFIX,
 	'edit-syllables=s' => \$EDIT_SYLLABLES,
+	'edit-chords=s' => \$EDIT_CHORDS,
 	'dry-run|n' => sub { $OUTPUT_FORMAT = undef; },
 );
 
 my ($filename) = @ARGV;
 
 $EDIT_SYLLABLES = eval "sub { $EDIT_SYLLABLES; }"
-	if defined $EDIT_SYLLABLES and not ref $EDIT_SYLLABLES;
+	unless ref $EDIT_SYLLABLES;
+$EDIT_CHORDS = eval "sub { $EDIT_CHORDS; }"
+	unless ref $EDIT_CHORDS;
 
 if(!defined $ESPEAK_PITCH_FACTOR and $ESPEAK_USE_PITCH_ADJUST_TAB)
 {
@@ -964,14 +971,11 @@ for my $trackno(0..@$tracks-1)
 		my $has_newline = 0;
 		$has_newline = 1
 			if $text =~ s/\\n\s*$//;
-		if($EDIT_SYLLABLES)
 		{
 			local $_ = $text;
 			$EDIT_SYLLABLES->();
 			$text = $_;
 		}
-		next
-			if $text !~ /\S/;
 		my $is_chord = $text =~ s/^(\s*)#/$1/;
 
 		push @lyrics, [$start, $text, $has_newline, $is_chord, {}];
@@ -1053,7 +1057,7 @@ for my $trackno(0..@$tracks-1)
 			next
 				if not defined $out;
 			if ($is_chord) {
-				for(@$notes)
+				for($EDIT_CHORDS->(@$notes))
 				{
 					my ($notestarttick, $noteticks, $pitch, $velocity) = @$_;
 					my $noteendtick = $notestarttick + $noteticks;
@@ -1104,12 +1108,14 @@ for my $trackno(0..@$tracks-1)
 						and abs($pitchbend[0][2]) < 0.001;
 				statuswarn "Pitch bend: $realstarttime/$channel/$minpitch/$avgpitch/$maxpitch/$text"
 					if @pitchbend > 0;
-				play_note
-					$realstarttick,
-					$realendtick - $realstarttick,
-					$realstarttime,
-					$realendtime - $realstarttime,
-					$avgpitch, $avgvelocity, \@pitchbend, $text;
+				for my $pitch($EDIT_CHORDS->($avgpitch)) {
+					play_note
+						$realstarttick,
+						$realendtick - $realstarttick,
+						$realstarttime,
+						$realendtime - $realstarttime,
+						$pitch, $avgvelocity, \@pitchbend, $text;
+				}
 			}
 		}
 	}
