@@ -905,6 +905,13 @@ EOF
 	}
 }
 
+sub split_lyric($) {
+	my ($text) = @_;
+	$text =~ /(.*)(\[\[.*\]\])(.*)$/
+		or return ($text, $text);
+	return "$1$3", $2;
+}
+
 my $tracks = $opus->tracks_r();
 
 my $totallen = 0;
@@ -1053,7 +1060,8 @@ for my $trackno(0..@$tracks-1)
 			my $realendtime = tick2sec $realendtick;
 			next
 				if $realendtime - $realstarttime > 30;
-			dump_lyric $realstarttime, $realendtime, $text, $has_newline;
+			my ($lyric, $speech) = split_lyric $text;
+			dump_lyric $realstarttime, $realendtime, $lyric, $has_newline;
 			next
 				if not defined $out;
 			if ($is_chord) {
@@ -1068,7 +1076,7 @@ for my $trackno(0..@$tracks-1)
 						$noteendtick - $notestarttick,
 						$notestarttime,
 						$noteendtime - $notestarttime,
-						$pitch, $velocity, [], $text;
+						$pitch, $velocity, [], $speech;
 				}
 			} else {
 				my @pitchbend = ();
@@ -1084,7 +1092,7 @@ for my $trackno(0..@$tracks-1)
 					my $noteendtick = $notestarttick + $noteticks;
 					my $notestarttime = tick2sec($notestarttick);
 					my $noteendtime = tick2sec($noteendtick);
-					die "Overlapping notes: $notestarttime/$channel/$pitch/$text"
+					die "Overlapping notes: $notestarttime/$channel/$pitch/$lyric/$speech"
 						if $notestarttime < $lastnoteendtime;
 					$sumtime += $noteendtime + $notestarttime;
 					$sumpitch += ($noteendtime + $notestarttime) * $pitch;
@@ -1106,7 +1114,7 @@ for my $trackno(0..@$tracks-1)
 				shift @pitchbend
 					while @pitchbend
 						and abs($pitchbend[0][2]) < 0.001;
-				statuswarn "Pitch bend: $realstarttime/$channel/$minpitch/$avgpitch/$maxpitch/$text"
+				statuswarn "Pitch bend: $realstarttime/$channel/$minpitch/$avgpitch/$maxpitch/$lyric/$speech"
 					if @pitchbend > 0;
 				for my $pitch($EDIT_CHORDS->($avgpitch)) {
 					play_note
@@ -1114,7 +1122,7 @@ for my $trackno(0..@$tracks-1)
 						$realendtick - $realstarttick,
 						$realstarttime,
 						$realendtime - $realstarttime,
-						$pitch, $avgvelocity, \@pitchbend, $text;
+						$pitch, $avgvelocity, \@pitchbend, $speech;
 				}
 			}
 		}
