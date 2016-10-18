@@ -120,7 +120,7 @@ our $ASS_POSTTIME = 0.5;
 our $ASS_LENGTHFACTOR = 1.0;
 
 # Filter to process notes/chords into chords (a sub from @notes to @notes).
-our $EDIT_CHORDS = sub { @_; };
+our $EDIT_CHORDS = sub { return @_; };
 
 # end of customizable variables
 
@@ -1065,9 +1065,19 @@ for my $trackno(0..@$tracks-1)
 			next
 				if not defined $out;
 			if ($is_chord) {
-				for($EDIT_CHORDS->(@$notes))
-				{
+				my @sorted = sort { $b->[2] <=> $a->[2] } @$notes;  # Highest pitch first.
+				my ($chordstarttick, $chordticks, $chordpitch, $chordvelocity) = @{$notes->[0]};
+				my @pitches = ();
+				for (@$notes) {
 					my ($notestarttick, $noteticks, $pitch, $velocity) = @$_;
+					warn "Chord with different-length notes: $notestarttick/$noteticks/$pitch/$velocity vs $chordstarttick/$chordticks/$chordpitch/$chordvelocity - will cycle"
+						if $notestarttick != $chordstarttick || $noteticks != $chordticks || $velocity != $chordvelocity;
+					push @pitches, $pitch;
+				}
+				my $i = 0;
+				for my $pitch($EDIT_CHORDS->(@pitches))
+				{
+					my ($notestarttick, $noteticks, $notepitch, $notevelocity) = @{$notes->[$i++ % @$notes]};
 					my $noteendtick = $notestarttick + $noteticks;
 					my $notestarttime = tick2sec($notestarttick);
 					my $noteendtime = tick2sec($noteendtick);
@@ -1076,7 +1086,7 @@ for my $trackno(0..@$tracks-1)
 						$noteendtick - $notestarttick,
 						$notestarttime,
 						$noteendtime - $notestarttime,
-						$pitch, $velocity, [], $speech;
+						$pitch, $chordvelocity, [], $speech;
 				}
 			} else {
 				my @pitchbend = ();
@@ -1116,7 +1126,8 @@ for my $trackno(0..@$tracks-1)
 						and abs($pitchbend[0][2]) < 0.001;
 				statuswarn "Pitch bend: $realstarttime/$channel/$minpitch/$avgpitch/$maxpitch/$lyric/$speech"
 					if @pitchbend > 0;
-				for my $pitch($EDIT_CHORDS->($avgpitch)) {
+				for my $pitch($EDIT_CHORDS->($avgpitch))
+				{
 					play_note
 						$realstarttick,
 						$realendtick - $realstarttick,
