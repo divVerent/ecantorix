@@ -69,7 +69,7 @@ our $ESPEAK_TEMPDIR = undef; # use $ESPEAK_CACHE/tmp by default
 our $ESPEAK_CACHE_PREFIX = "";
 
 # input syllable editing (perl expression or sub operating on $_)
-our $EDIT_SYLLABLES;
+our $EDIT_SYLLABLES = sub { $_; };
 
 # hint: $EDIT_SYLLABLES = sub { s/^\s*\[\[\s*(.*)\s*\]\]\s*$/$1/s or s/^\s*(.*?)\s*$/[[$1]]/s; };
 # changes the parsing to [[words]] and phonetics, instead of the default (words and [[phonetics]])
@@ -118,6 +118,10 @@ our $ANALYZE_ENV = 3;
 our $ASS_PRETIME = 1.5;
 our $ASS_POSTTIME = 0.5;
 our $ASS_LENGTHFACTOR = 1.0;
+
+# Filter to process notes/chords into chords (a sub from @notes to @notes).
+our $EDIT_CHORDS = sub { @_; };
+
 # end of customizable variables
 
 # some options make sense overriding from the command line
@@ -134,13 +138,16 @@ GetOptions(
 	'output|o=s' => \$OUTPUT_FILE,
 	'output-mid-prefix=s' => \$OUTPUT_MID_PREFIX,
 	'edit-syllables=s' => \$EDIT_SYLLABLES,
+	'edit-chords=s' => \$EDIT_CHORDS,
 	'dry-run|n' => sub { $OUTPUT_FORMAT = undef; },
 );
 
 my ($filename) = @ARGV;
 
 $EDIT_SYLLABLES = eval "sub { $EDIT_SYLLABLES; }"
-	if defined $EDIT_SYLLABLES and not ref $EDIT_SYLLABLES;
+	unless ref $EDIT_SYLLABLES;
+$EDIT_CHORDS = eval "sub { $EDIT_CHORDS; }"
+	unless ref $EDIT_CHORDS;
 
 if(!defined $ESPEAK_PITCH_FACTOR and $ESPEAK_USE_PITCH_ADJUST_TAB)
 {
@@ -898,6 +905,13 @@ EOF
 	}
 }
 
+sub split_lyric($) {
+	my ($text) = @_;
+	$text =~ /(.*)(\[\[.*\]\])(.*)$/
+		or return ($text, $text);
+	return "$1$3", $2;
+}
+
 my $tracks = $opus->tracks_r();
 
 my $totallen = 0;
@@ -951,9 +965,28 @@ for my $trackno(0..@$tracks-1)
 	# lyrics = array of [starttick, text, channels]
 	# channels = hash of channel => notes
 	# notes = array of [starttick, ticks, pitch]
-	my @lyrics = map {
-		$text_event_types{$_->[0]} ? [$_->[1], $_->[2], {}] : ()
-	} @events;
+	my @lyrics;
+	for (@events) {
+		next unless $text_event_types{$_->[0]};
+		my $start = $_->[1];
+		my $text = $_->[2];
+
+		next
+			if $text =~ /^%/;
+		$text =~ s/^\///;
+		$text =~ s/^\\//;
+		my $has_newline = 0;
+		$has_newline = 1
+			if $text =~ s/\\n\s*$//;
+		{
+			local $_ = $text;
+			$EDIT_SYLLABLES->();
+			$text = $_;
+		}
+		my $is_chord = $text =~ s/^(\s*)#/$1/;
+
+		push @lyrics, [$start, $text, $has_newline, $is_chord, {}];
+	}
 	my $insert_note = sub
 	{
 		my ($starttick, $ticks, $channel, $pitch, $velocity) = @_;
@@ -967,7 +1000,7 @@ for my $trackno(0..@$tracks-1)
 		}
 		if($found)
 		{
-			push @{$found->[2]{$channel}},
+			push @{$found->[4]{$channel}},
 				[$starttick, $ticks, $pitch, $velocity];
 			return 1;
 		}
@@ -1016,26 +1049,7 @@ for my $trackno(0..@$tracks-1)
 
 	for(@lyrics)
 	{
-		my ($starttick, $text, $channels) = @$_;
-		next
-			if $text =~ /^%/;
-		$text =~ s/^\///;
-		$text =~ s/^\\//;
-		my $has_newline = 0;
-		$has_newline = 1
-			if $text =~ s/\\n\s*$//;
-
-		if($EDIT_SYLLABLES)
-		{
-			local $_ = $text;
-			$EDIT_SYLLABLES->();
-			$text = $_;
-		}
-
-		next
-			if $text !~ /\S/;
-
-		my $is_chord = $text =~ s/^(\s*)#/$1/;
+		my ($starttick, $text, $has_newline, $is_chord, $channels) = @$_;
 
 		for my $channel(sort keys %$channels)
 		{
@@ -1046,11 +1060,12 @@ for my $trackno(0..@$tracks-1)
 			my $realendtime = tick2sec $realendtick;
 			next
 				if $realendtime - $realstarttime > 30;
-			dump_lyric $realstarttime, $realendtime, $text, $has_newline;
+			my ($lyric, $speech) = split_lyric $text;
+			dump_lyric $realstarttime, $realendtime, $lyric, $has_newline;
 			next
 				if not defined $out;
 			if ($is_chord) {
-				for(@$notes)
+				for($EDIT_CHORDS->(@$notes))
 				{
 					my ($notestarttick, $noteticks, $pitch, $velocity) = @$_;
 					my $noteendtick = $notestarttick + $noteticks;
@@ -1061,7 +1076,7 @@ for my $trackno(0..@$tracks-1)
 						$noteendtick - $notestarttick,
 						$notestarttime,
 						$noteendtime - $notestarttime,
-						$pitch, $velocity, [], $text;
+						$pitch, $velocity, [], $speech;
 				}
 			} else {
 				my @pitchbend = ();
@@ -1069,17 +1084,23 @@ for my $trackno(0..@$tracks-1)
 				my $sumpitch = 0;
 				my $sumvelocity = 0;
 				my $sumtime = 0;
+				my $minpitch = 127;
+				my $maxpitch = 0;
 				for(@$notes)
 				{
 					my ($notestarttick, $noteticks, $pitch, $velocity) = @$_;
 					my $noteendtick = $notestarttick + $noteticks;
 					my $notestarttime = tick2sec($notestarttick);
 					my $noteendtime = tick2sec($noteendtick);
-					die "Overlapping notes: $notestarttime/$channel/$pitch/$text"
+					die "Overlapping notes: $notestarttime/$channel/$pitch/$lyric/$speech"
 						if $notestarttime < $lastnoteendtime;
 					$sumtime += $noteendtime + $notestarttime;
 					$sumpitch += ($noteendtime + $notestarttime) * $pitch;
 					$sumvelocity += ($noteendtime + $notestarttime) * $velocity;
+					$minpitch = $pitch
+						if $pitch < $minpitch;
+					$maxpitch = $pitch
+						if $pitch > $maxpitch;
 					push @pitchbend, [
 						$lastnoteendtime - $realstarttime,
 						$notestarttime - $realstarttime,
@@ -1093,14 +1114,16 @@ for my $trackno(0..@$tracks-1)
 				shift @pitchbend
 					while @pitchbend
 						and abs($pitchbend[0][2]) < 0.001;
-				statuswarn "Pitch bend: $realstarttime/$channel/$avgpitch/$text"
+				statuswarn "Pitch bend: $realstarttime/$channel/$minpitch/$avgpitch/$maxpitch/$lyric/$speech"
 					if @pitchbend > 0;
-				play_note
-					$realstarttick,
-					$realendtick - $realstarttick,
-					$realstarttime,
-					$realendtime - $realstarttime,
-					$avgpitch, $avgvelocity, \@pitchbend, $text;
+				for my $pitch($EDIT_CHORDS->($avgpitch)) {
+					play_note
+						$realstarttick,
+						$realendtick - $realstarttick,
+						$realstarttime,
+						$realendtime - $realstarttime,
+						$pitch, $avgvelocity, \@pitchbend, $speech;
+				}
 			}
 		}
 	}
