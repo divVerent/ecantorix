@@ -34,9 +34,11 @@ sub mapnote($$$$)
 	my @events = ();
 	my $len = $ev->{'Length'};
 	my $note = $ev->{'NoteNum'};
-	my $velocity = $ev->{'Intensity'};
+	my $velocity = $ev->{'Velocity'} // $ev->{'Intensity'} // 100;
+	$velocity = 1   if $velocity < 1;    # Clamp to MIDI
+	$velocity = 127 if $velocity > 127;  # allowed values.
 	my $text = $ev->{'Lyric'};
-	if($text ne "R")
+	if($text ne "R")  # Rest.
 	{
 		push @events, ['lyric', $start, $text];
 		push @events, ['note_on', $start, $channel, $note, $velocity];
@@ -70,9 +72,23 @@ GetOptions(
 	'input|i=s' => \$infile,
 	'output|o=s' => \$outfile,
 );
-my $ini = Config::Tiny->read($infile);
-my $utautempo = $ini->{"#SETTING"}->{Tempo};
-my $miditempo = int(60000000 / $utautempo + 0.5);
+my $data = do {
+	undef local $/;
+	open my $fh, '<', $infile
+		or die "open: $!.";
+	<$fh>;
+};
+# Fix up INI syntax.
+$data =~ s/^(UST Version)([0-9])/$1=$2/m;
+my $ini = Config::Tiny->read_string($data)
+	or die "Config::Tiny->read: @{[Config::Tiny->errstr]}.";
+my $utautempo = $ini->{"#SETTING"}->{Tempo}
+	or die "No tempo in [#SETTING] section.";
+# TODO: Find out where this difference is coming from. Can we know this from
+# the UST Version, e.g.?
+my $miditempo = $utautempo > 10000
+	? $utautempo  # Microseconds-per-quarter-note observed in some USTs.
+	: int(60000000 / $utautempo + 0.5);  # Beats-per-minute observed too.
 my $ttrack = MIDI::Track->new();
 $ttrack->events(['set_tempo', 0, $miditempo]);
 my $ntrack = MIDI::Track->new();
