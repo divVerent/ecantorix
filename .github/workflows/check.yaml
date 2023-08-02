@@ -19,11 +19,14 @@ jobs:
       - name: Install dependencies to build examples
         run: sudo apt-get install --yes abcmidi
 
-      - name: Remove the 'clean' step in the Makefile
-        run: |
-          head -n -4 examples/Makefile > Makefile 
-          mv Makefile examples/Makefile
-          cat examples/Makefile
+      #- name: Remove the 'clean' step in the Makefile
+      #  run: |
+      #    head -n -4 examples/Makefile > Makefile 
+      #    mv Makefile examples/Makefile
+      #    cat examples/Makefile
+
+      - name: Remove the 'clean' step in the Perl script
+        run: sed -i 's/delete .self->.opus.;/# Removed by richelbilderbeek/g' ecantorix.pl
 
       - name: Build examples
         run: |
