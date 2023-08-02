@@ -33,6 +33,6 @@ espeak-data:
 	mkdir -p cache
 	$(ECANTORIX) -C $*.conf -c cache -O mid --output-mid-prefix=vocals: -o $*-xon.mid $< > $*.ass
 
-clean:
-	$(RM) -r espeak-data cache
-	$(RM) *.wav *.mid *.mmp *.ass
+#clean:
+#	$(RM) -r espeak-data cache
+#	$(RM) *.wav *.mid *.mmp *.ass
