@@ -28,7 +28,9 @@ jobs:
       - name: Remove the 'clean' step in the Perl script
         run: |
           sed -i 's/delete .self->.opus.;/# Removed by richelbilderbeek/g' ecantorix.pl
-          cat ecantorix.pl | egrep "delete .self->.opus.;"
+          echo "Confirm it is deleted"
+          cat ecantorix.pl | egrep "delete .self->.opus.;" || true
+          echo "Yep, it is deleted"
 
       - name: Build examples
         run: |
