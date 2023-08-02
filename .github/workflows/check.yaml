@@ -22,8 +22,8 @@ jobs:
       - name: Remove the 'clean' step in the Makefile
         run: |
           head -n -4 examples/Makefile > Makefile 
-          cat Makefile
           mv Makefile examples/Makefile
+          cat examples/Makefile
 
       - name: Build examples
         run: |
