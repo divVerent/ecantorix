@@ -16,5 +16,14 @@ jobs:
       - name: Install Math::FFT
         run: sudo perl -MCPAN -e 'install Math::FFT'
 
+      - name: Install dependencies to build examples
+        run: sudo apt-get install --yes abcmidi
+
+      - name: Build examples
+        run: |
+          cd examples
+          make
+          cd ..
+
       - name: run
         run: perl ecantorix.pl -O mmp -o foo.mmp foo.mid
