@@ -13,8 +13,8 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get install --yes espeak sox libmidi-perl
 
-      #- name: Install dependencies
-      #  run: sudo apt-get install --yes llms 
+      - name: Install Math::FFT
+        run: sudo perl -MCPAN -e 'install Math::FFT'
 
       - name: run
         run: perl ecantorix.pl -O mmp -o foo.mmp foo.mid
