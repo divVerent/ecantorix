@@ -1,0 +1,17 @@
+on:
+  push:
+  pull_request:
+
+name: check
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: sudo apt-get install --yes espeak sox llms
+
+      - name: run
+        run: perl ecantorix.pl -O mmp -o foo.mmp foo.mid
