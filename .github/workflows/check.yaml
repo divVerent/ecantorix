@@ -23,10 +23,12 @@ jobs:
         run: |
           head -n -4 examples/Makefile > Makefile 
           mv Makefile examples/Makefile
-          cat examples/Makefile
+          tail -n 4 examples/Makefile
 
       - name: Remove the 'clean' step in the Perl script
-        run: sed -i 's/delete .self->.opus.;/# Removed by richelbilderbeek/g' ecantorix.pl
+        run: |
+          sed -i 's/delete .self->.opus.;/# Removed by richelbilderbeek/g' ecantorix.pl
+          cat ecantorix.pl | egrep "delete .self->.opus.;"
 
       - name: Build examples
         run: |
