@@ -1,0 +1,35 @@
+on:
+  push:
+  pull_request:
+
+name: check
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: sudo apt-get install --yes espeak sox libmidi-perl
+
+      - name: Install Math::FFT
+        run: sudo perl -MCPAN -e 'install Math::FFT'
+
+      - name: Install dependencies to build examples
+        run: sudo apt-get install --yes abcmidi
+
+      - name: Build examples
+        run: |
+          cd examples
+          make
+          cd ..
+
+      #- name: Show MIDI files in examples
+      #  run: |
+      #    cd examples
+      #    ls *.mid
+      #    cd ..
+
+      #- name: run
+      #  run: perl ecantorix.pl -O mmp -o foo.mmp examples/entchen.mid

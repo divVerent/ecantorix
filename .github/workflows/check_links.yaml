@@ -1,0 +1,21 @@
+on:
+  push:
+  pull_request:
+  schedule:
+  - cron: "0 0 4 * *"
+
+name: check_links
+
+jobs:
+  check_links:
+
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: lycheeverse/lychee-action@v1.2.0
+        with:
+          fail: true
