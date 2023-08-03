@@ -30,6 +30,27 @@ Dependencies
   * MIDI::Opus
   * Math::FFT
 
+Installation
+============
+
+Under Linux, follow the same steps as [the GitHub Actions script](.github/workflows/check.yaml):
+
+	sudo apt-get install espeak sox libmidi-perl
+	sudo perl -MCPAN -e 'install Math::FFT'
+
+To build the examples, also do:
+
+	sudo apt-get install abcmidi
+
+Building the examples
+=====================
+
+Under Linux, follow the same steps as [the GitHub Actions script](.github/workflows/check.yaml):
+
+	cd examples
+	make
+	cd ..
+
 How to use
 ==========
 
