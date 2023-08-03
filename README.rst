@@ -33,7 +33,7 @@ Dependencies
 Installation
 ============
 
-Under Linux, follow the same steps as [the GitHub Actions script](.github/workflows/check.yaml):
+Under Linux, do:
 
 	sudo apt-get install espeak sox libmidi-perl
 	
@@ -46,7 +46,7 @@ To build the examples, also do:
 Building the examples
 =====================
 
-Under Linux, follow the same steps as [the GitHub Actions script](.github/workflows/check.yaml):
+Under Linux, do:
 
 	cd examples
 	
