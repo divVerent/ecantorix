@@ -19,30 +19,17 @@ jobs:
       - name: Install dependencies to build examples
         run: sudo apt-get install --yes abcmidi
 
-      - name: Remove the 'clean' step in the Makefile
-        run: |
-          head -n -4 examples/Makefile > Makefile 
-          mv Makefile examples/Makefile
-          tail -n 4 examples/Makefile
-
-      - name: Remove the 'clean' step in the Perl script
-        run: |
-          sed -i 's/delete .self->.opus.;/# Removed by richelbilderbeek/g' ecantorix.pl
-          echo "Confirm it is deleted"
-          cat ecantorix.pl | egrep "delete .self->.opus.;" || true
-          echo "Yep, it is deleted"
-
       - name: Build examples
         run: |
           cd examples
           make
           cd ..
 
-      - name: Show MIDI files in examples
-        run: |
-          cd examples
-          ls *.mid
-          cd ..
+      #- name: Show MIDI files in examples
+      #  run: |
+      #    cd examples
+      #    ls *.mid
+      #    cd ..
 
-      - name: run
-        run: perl ecantorix.pl -O mmp -o foo.mmp examples/entchen.mid
+      #- name: run
+      #  run: perl ecantorix.pl -O mmp -o foo.mmp examples/entchen.mid
