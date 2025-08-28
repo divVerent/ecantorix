@@ -16,6 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - uses: lycheeverse/lychee-action@v1.2.0
+      - uses: lycheeverse/lychee-action@v2.0.2
         with:
           fail: true
