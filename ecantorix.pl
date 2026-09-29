@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 #
 #   eCantorix - singing speech synthesis using eSpeak
 #   Copyright (C) 2012  Rudolf Polzer
@@ -25,6 +25,8 @@ use MIDI;
 use URI::Escape;
 use Math::FFT;
 use Cwd;
+use File::Basename ();
+use File::Spec;
 use Getopt::Long;
 use Digest::SHA;
 use eCantorix::Util;
@@ -124,10 +126,25 @@ our $EDIT_CHORDS = sub { return @_; };
 
 # end of customizable variables
 
+# Run a control file. Since Perl 5.26 `do` no longer looks for a relative
+# path in the current directory, so `-C foo.conf` was silently skipped, and
+# with it the voice, the transposition and any extra voice the file loads.
+# The file's own directory is put on @INC while it runs, so the extra voices
+# it includes by relative path (`do 'extravoices/melt.inc'`) are found too.
+sub load_control_file
+{
+	my ($file) = @_;
+	my $path = File::Spec->rel2abs($file);
+	local @INC = (File::Basename::dirname($path), @INC);
+	my $result = do $path;
+	die "Could not parse control file $file: $@" if $@;
+	die "Could not read control file $file: $!" if !defined $result && $!;
+}
+
 # some options make sense overriding from the command line
 Getopt::Long::Configure("gnu_getopt", "auto_help", "auto_version");
 GetOptions(
-	'control-file|C=s' => sub { do $_[1]; },
+	'control-file|C=s' => sub { load_control_file($_[1]); },
 	'voice|v=s' => \$ESPEAK_VOICE,
 	'transpose|t=s' => sub { $ESPEAK_TRANSPOSE += $_[1]; },
 	'rate|r=s' => \$SOX_RATE,

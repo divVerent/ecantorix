@@ -1,5 +1,6 @@
 ECANTORIX = ../ecantorix.pl
-ESPEAK_DATA = /usr/lib/x86_64-linux-gnu/espeak-data
+# Where espeak says its data is, rather than where one Linux layout puts it.
+ESPEAK_DATA ?= $(shell espeak --version | sed -n 's/.*Data at: //p')
 
 ALL = \
       entchen.wav \

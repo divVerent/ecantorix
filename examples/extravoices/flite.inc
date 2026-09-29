@@ -13,3 +13,6 @@ $ESPEAK_SPEED_START = 100;
 $ESPEAK_SPEED_MAX = 500;
 
 $ESPEAK = 'flite -voice "$VOICE" -s duration_stretch=`echo 100/"$SPEED" | bc -l` -s int_f0_target_mean="$PITCH" -s int_f0_target_stddev=0 -o "$OUT" -t "$SYLLABLE"';
+
+# Renders through flite are not espeak's, and must not share its cache.
+$ESPEAK_CACHE_PREFIX .= "flite";
